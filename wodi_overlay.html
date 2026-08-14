@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wodi — AI Assistant Overlay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    html, body {
+      width: 100%; height: 100%;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      -webkit-font-smoothing: antialiased;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       OVERLAY BACKDROP — Fullscreen frosted dark glass
+       ═══════════════════════════════════════════════════════════ */
+
+    #overlay {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(60px) saturate(120%);
+      -webkit-backdrop-filter: blur(60px) saturate(120%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999;
+      opacity: 0;
+      transition: opacity 0.4s var(--ease-out-expo);
+      cursor: default;
+    }
+    #overlay.visible { opacity: 1; }
+    #overlay.hidden { pointer-events: none; opacity: 0; }
+
+    /* Ambient glow behind orb */
+    #overlay::before {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -60%);
+      border-radius: 50%;
+      background: radial-gradient(
+        ellipse,
+        rgba(99, 102, 241, 0.12) 0%,
+        rgba(139, 92, 246, 0.06) 40%,
+        transparent 70%
+      );
+      pointer-events: none;
+      transition: all 0.8s ease;
+    }
+
+    /* State-reactive ambient glow */
+    #overlay.state-listening::before {
+      background: radial-gradient(ellipse, rgba(34, 211, 238, 0.18) 0%, rgba(52, 211, 153, 0.08) 40%, transparent 70%);
+    }
+    #overlay.state-thinking::before {
+      background: radial-gradient(ellipse, rgba(251, 146, 60, 0.18) 0%, rgba(245, 158, 11, 0.08) 40%, transparent 70%);
+    }
+    #overlay.state-speaking::before {
+      background: radial-gradient(ellipse, rgba(139, 92, 246, 0.18) 0%, rgba(99, 102, 241, 0.08) 40%, transparent 70%);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       TOP BAR — Minimal status
+       ═══════════════════════════════════════════════════════════ */
+
+    #top-bar {
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 28px;
+      z-index: 2;
+    }
+
+    .top-brand {
+      display: flex; align-items: center; gap: 10px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.4s var(--ease-out-expo) 0.15s;
+    }
+    #overlay.visible .top-brand { opacity: 1; transform: translateY(0); }
+
+    .brand-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
+    }
+    .brand-name {
+      font-size: 14px; font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+      letter-spacing: 0.3px;
+    }
+
+    .top-right {
+      display: flex; align-items: center; gap: 16px;
+      opacity: 0;
+      transform: translateY(-10px);
+      transition: all 0.4s var(--ease-out-expo) 0.2s;
+    }
+    #overlay.visible .top-right { opacity: 1; transform: translateY(0); }
+
+    .connection-badge {
+      display: flex; align-items: center; gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      font-size: 11px; color: rgba(255, 255, 255, 0.45);
+    }
+    .connection-badge .dot {
+      width: 5px; height: 5px; border-radius: 50%;
+    }
+    .connection-badge .dot.online { background: #34d399; box-shadow: 0 0 6px rgba(52,211,153,0.6); }
+    .connection-badge .dot.offline { background: #f43f5e; }
+    .connection-badge .dot.connecting { background: #f59e0b; animation: pulse 1.5s ease infinite; }
+
+    #close-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.4);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+      transition: all 0.2s ease;
+    }
+    #close-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: rgba(255, 255, 255, 0.8);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       CENTER STAGE — Orb + Status + Response
+       ═══════════════════════════════════════════════════════════ */
+
+    #center-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      max-width: 680px;
+      width: 100%;
+      padding: 0 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* Status label above orb */
+    #status-label {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.35);
+      margin-bottom: 20px;
+      opacity: 0;
+      transform: translateY(8px);
+      transition: all 0.35s var(--ease-out-expo);
+    }
+    #status-label.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Orb canvas */
+    #orb-wrap {
+      position: relative;
+      width: 200px; height: 200px;
+      cursor: pointer;
+      margin-bottom: 24px;
+      opacity: 0;
+      transform: scale(0.8);
+      transition: all 0.5s var(--ease-spring) 0.1s;
+    }
+    #overlay.visible #orb-wrap {
+      opacity: 1;
+      transform: scale(1);
+    }
+    #orb-wrap:hover { transform: scale(1.03); }
+    #orb-wrap:active { transform: scale(0.97); }
+
+    #orb-canvas {
+      width: 100%; height: 100%;
+      border-radius: 50%;
+    }
+
+    /* Outer glow ring */
+    #orb-glow {
+      position: absolute;
+      inset: -40px;
+      border-radius: 50%;
+      pointer-events: none;
+      transition: all 0.6s ease;
+    }
+
+    /* Subtle ring border */
+    #orb-ring {
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.08);
+      pointer-events: none;
+      transition: border-color 0.4s ease;
+    }
+    #overlay.state-listening #orb-ring { border-color: rgba(34, 211, 238, 0.25); }
+    #overlay.state-thinking #orb-ring { border-color: rgba(251, 146, 60, 0.25); }
+    #overlay.state-speaking #orb-ring { border-color: rgba(139, 92, 246, 0.25); }
+
+    /* Response area */
+    #response-area {
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+      text-align: center;
+      margin-bottom: 8px;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.4s var(--ease-out-expo);
+    }
+    #response-area.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    #response-area::-webkit-scrollbar { width: 3px; }
+    #response-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    #response-text {
+      font-size: 18px;
+      font-weight: 300;
+      line-height: 1.6;
+      color: rgba(255, 255, 255, 0.92);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    /* Thinking dots */
+    .thinking-dots {
+      display: flex; gap: 6px;
+      justify-content: center;
+      padding: 8px 0;
+    }
+    .thinking-dots span {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.5);
+      animation: dotPulse 1.4s ease-in-out infinite;
+    }
+    .thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
+    @keyframes dotPulse {
+      0%, 80%, 100% { transform: scale(0.5); opacity: 0.3; }
+      40% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Stream cursor */
+    .stream-cursor {
+      display: inline-block;
+      width: 2px; height: 18px;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 1px;
+      margin-left: 3px;
+      vertical-align: text-bottom;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; } 50% { opacity: 0.3; }
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       INPUT BAR — Bottom floating
+       ═══════════════════════════════════════════════════════════ */
+
+    #input-section {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 0 24px 36px;
+      z-index: 2;
+      opacity: 0;
+      transform: translateY(20px);
+      transition: all 0.45s var(--ease-out-expo) 0.2s;
+    }
+    #overlay.visible #input-section {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .input-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      max-width: 580px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 52px;
+      padding: 6px 6px 6px 24px;
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      transition: all 0.25s ease;
+    }
+    .input-bar:focus-within {
+      border-color: rgba(99, 102, 241, 0.35);
+      background: rgba(255, 255, 255, 0.09);
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08),
+                  0 8px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    #text-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.92);
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 400;
+      padding: 10px 0;
+      outline: none;
+      caret-color: #818cf8;
+    }
+    #text-input::placeholder { color: rgba(255, 255, 255, 0.25); }
+
+    .input-actions {
+      display: flex; align-items: center; gap: 4px;
+    }
+
+    .action-btn {
+      width: 42px; height: 42px;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    #mic-btn {
+      background: transparent;
+      color: rgba(255, 255, 255, 0.45);
+      font-size: 20px;
+      border: 1px solid transparent;
+    }
+    #mic-btn:hover {
+      color: rgba(255, 255, 255, 0.7);
+      background: rgba(255, 255, 255, 0.06);
+    }
+    #mic-btn.active {
+      color: #f43f5e;
+      background: rgba(244, 63, 94, 0.12);
+      border-color: rgba(244, 63, 94, 0.25);
+      box-shadow: 0 0 16px rgba(244, 63, 94, 0.2);
+      animation: micPulse 2s ease-in-out infinite;
+    }
+    @keyframes micPulse {
+      0%, 100% { box-shadow: 0 0 16px rgba(244, 63, 94, 0.2); }
+      50% { box-shadow: 0 0 28px rgba(244, 63, 94, 0.35); }
+    }
+
+    #send-btn {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      font-size: 18px;
+      box-shadow: 0 4px 16px rgba(99, 102, 241, 0.35);
+    }
+    #send-btn:hover {
+      box-shadow: 0 6px 24px rgba(99, 102, 241, 0.5);
+      transform: scale(1.06);
+    }
+    #send-btn:active { transform: scale(0.94); }
+    #send-btn:disabled {
+      opacity: 0.25; cursor: default;
+      transform: none; box-shadow: none;
+    }
+
+    .input-hint {
+      margin-top: 10px;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.2);
+      letter-spacing: 0.3px;
+    }
+    .input-hint kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      font-size: 10px;
+      font-family: inherit;
+      color: rgba(255, 255, 255, 0.25);
+      margin: 0 1px;
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       SUGGESTION CHIPS
+       ═══════════════════════════════════════════════════════════ */
+
+    #chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      margin-top: 12px;
+      max-width: 560px;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.4s var(--ease-out-expo) 0.3s;
+    }
+    #overlay.visible #chips.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .chip {
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.5);
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+    .chip:hover {
+      border-color: rgba(99, 102, 241, 0.3);
+      background: rgba(99, 102, 241, 0.08);
+      color: #818cf8;
+      transform: translateY(-1px);
+    }
+
+    /* ═══════════════════════════════════════════════════════════
+       ACTIVATION TRIGGER (when overlay is hidden)
+       ═══════════════════════════════════════════════════════════ */
+
+    #trigger-btn {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff;
+      font-size: 24px; font-weight: 700;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 32px rgba(99, 102, 241, 0.45),
+                  0 0 0 0 rgba(99, 102, 241, 0);
+      z-index: 99998;
+      transition: all 0.3s var(--ease-spring);
+      animation: triggerBreath 3s ease-in-out infinite;
+    }
+    @keyframes triggerBreath {
+      0%, 100% { box-shadow: 0 8px 32px rgba(99,102,241,0.45), 0 0 0 0 rgba(99,102,241,0); }
+      50% { box-shadow: 0 12px 40px rgba(99,102,241,0.55), 0 0 0 8px rgba(99,102,241,0.08); }
+    }
+    #trigger-btn:hover {
+      transform: scale(1.1);
+      box-shadow: 0 12px 40px rgba(99, 102, 241, 0.6);
+    }
+    #trigger-btn:active { transform: scale(0.92); }
+    #trigger-btn.hidden { opacity: 0; pointer-events: none; transform: scale(0.5); }
+
+    /* ═══════════════════════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      #orb-wrap { width: 150px; height: 150px; }
+      #response-text { font-size: 16px; }
+      #text-input { font-size: 14px; }
+      .input-bar { max-width: 100%; }
+      .chip { font-size: 11px; padding: 6px 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Floating Trigger Button ═══ -->
+<button id="trigger-btn" title="Open Wodi (Ctrl+Space)">W</button>
+
+<!-- ═══ Fullscreen Overlay ═══ -->
+<div id="overlay" class="hidden">
+
+  <!-- Top Bar -->
+  <div id="top-bar">
+    <div class="top-brand">
+      <div class="brand-dot"></div>
+      <span class="brand-name">Wodi</span>
+    </div>
+    <div class="top-right">
+      <div class="connection-badge" id="conn-badge">
+        <span class="dot connecting"></span>
+        <span id="conn-text">Connecting...</span>
+      </div>
+      <button id="close-btn" title="Close (Esc)">✕</button>
+    </div>
+  </div>
+
+  <!-- Center Stage -->
+  <div id="center-stage">
+    <div id="status-label"></div>
+
+    <div id="orb-wrap">
+      <div id="orb-glow"></div>
+      <div id="orb-ring"></div>
+      <canvas id="orb-canvas"></canvas>
+    </div>
+
+    <div id="response-area">
+      <div id="response-text"></div>
+    </div>
+
+    <div id="chips" class="visible">
+      <div class="chip" data-prompt="What time is it?">What time is it?</div>
+      <div class="chip" data-prompt="Open Notepad">Open Notepad</div>
+      <div class="chip" data-prompt="How much RAM am I using?">RAM usage</div>
+      <div class="chip" data-prompt="What's running on my computer?">Processes</div>
+      <div class="chip" data-prompt="Take a screenshot and describe my screen">Describe screen</div>
+    </div>
+  </div>
+
+  <!-- Input Section -->
+  <div id="input-section">
+    <div class="input-bar">
+      <input
+        id="text-input"
+        type="text"
+        placeholder="Ask Wodi anything..."
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <div class="input-actions">
+        <button class="action-btn" id="mic-btn" title="Voice input">🎤</button>
+        <button class="action-btn" id="send-btn" title="Send" disabled>↑</button>
+      </div>
+    </div>
+    <div class="input-hint">
+      <kbd>Ctrl</kbd>+<kbd>Space</kbd> to toggle · <kbd>Enter</kbd> to send · <kbd>Esc</kbd> to dismiss
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════════
+   WODI OVERLAY ASSISTANT — Siri/Google Assistant Style
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+// ── State Machine ─────────────────────────────────────────────────────────
+const S = { IDLE: 'idle', LISTENING: 'listening', THINKING: 'thinking', SPEAKING: 'speaking' };
+let state = S.IDLE;
+let isOpen = false;
+let isStreaming = false;
+let streamBuffer = '';
+
+// ── Color Palettes ────────────────────────────────────────────────────────
+const PALETTES = {
+  idle:      { colors: [[99,102,241],[139,92,246],[59,130,246]], glow: 'rgba(99,102,241,0.12)' },
+  listening: { colors: [[34,211,238],[52,211,153],[99,102,241]], glow: 'rgba(34,211,238,0.20)' },
+  thinking:  { colors: [[251,146,60],[245,158,11],[217,119,6]], glow: 'rgba(251,146,60,0.20)' },
+  speaking:  { colors: [[139,92,246],[99,102,241],[244,63,94]], glow: 'rgba(139,92,246,0.20)' },
+};
+
+// ── DOM Refs ──────────────────────────────────────────────────────────────
+const overlay = document.getElementById('overlay');
+const triggerBtn = document.getElementById('trigger-btn');
+const closeBtn = document.getElementById('close-btn');
+const inputEl = document.getElementById('text-input');
+const sendBtn = document.getElementById('send-btn');
+const micBtn = document.getElementById('mic-btn');
+const statusLabel = document.getElementById('status-label');
+const responseArea = document.getElementById('response-area');
+const responseText = document.getElementById('response-text');
+const chipsEl = document.getElementById('chips');
+const connBadge = document.getElementById('conn-badge');
+const connText = document.getElementById('conn-text');
+const canvas = document.getElementById('orb-canvas');
+const ctx = canvas.getContext('2d');
+const glowEl = document.getElementById('orb-glow');
+
+// ── Overlay Open / Close ──────────────────────────────────────────────────
+function openOverlay() {
+  if (isOpen) return;
+  isOpen = true;
+  overlay.classList.remove('hidden');
+  triggerBtn.classList.add('hidden');
+  requestAnimationFrame(() => {
+    overlay.classList.add('visible');
+  });
+  setTimeout(() => inputEl.focus(), 350);
+}
+
+function closeOverlay() {
+  if (!isOpen) return;
+  isOpen = false;
+  overlay.classList.remove('visible');
+  setTimeout(() => {
+    overlay.classList.add('hidden');
+    triggerBtn.classList.remove('hidden');
+    resetState();
+  }, 400);
+}
+
+function toggleOverlay() {
+  isOpen ? closeOverlay() : openOverlay();
+}
+
+function resetState() {
+  setState(S.IDLE);
+  streamBuffer = '';
+  responseText.innerHTML = '';
+  responseArea.classList.remove('visible');
+  chipsEl.classList.add('visible');
+  inputEl.value = '';
+  sendBtn.disabled = true;
+}
+
+triggerBtn.addEventListener('click', openOverlay);
+closeBtn.addEventListener('click', closeOverlay);
+
+// Click backdrop to close (but not children)
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay) closeOverlay();
+});
+
+// ── State Machine ─────────────────────────────────────────────────────────
+function setState(newState) {
+  state = newState;
+
+  // Remove all state classes
+  overlay.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
+  overlay.classList.add(`state-${state}`);
+
+  // Status label
+  const labels = {
+    idle: '',
+    listening: 'LISTENING',
+    thinking: 'PROCESSING',
+    speaking: 'WODI',
+  };
+  const label = labels[state] || '';
+  if (label) {
+    statusLabel.textContent = label;
+    statusLabel.classList.add('visible');
+  } else {
+    statusLabel.classList.remove('visible');
+  }
+
+  // Orb glow
+  const palette = PALETTES[state] || PALETTES.idle;
+  glowEl.style.background = `radial-gradient(ellipse, ${palette.glow} 0%, transparent 70%)`;
+
+  // Mic button
+  if (state === S.LISTENING) {
+    micBtn.classList.add('active');
+  } else {
+    micBtn.classList.remove('active');
+  }
+}
+
+// ── Canvas Orb — Liquid Sphere ────────────────────────────────────────────
+let orbPhase = 0;
+let targetRMS = 0;
+let currentRMS = 0;
+
+function resizeCanvas() {
+  const wrap = document.getElementById('orb-wrap');
+  const dpr = window.devicePixelRatio || 1;
+  const size = wrap.clientWidth;
+  canvas.width = size * dpr;
+  canvas.height = size * dpr;
+  canvas.style.width = size + 'px';
+  canvas.style.height = size + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function drawOrb() {
+  orbPhase += 0.012;
+  currentRMS = lerp(currentRMS, targetRMS, 0.1);
+  targetRMS *= 0.94;
+
+  const size = canvas.width / (window.devicePixelRatio || 1);
+  const cx = size / 2;
+  const cy = size / 2;
+  const baseR = size * 0.38;
+
+  ctx.clearRect(0, 0, size, size);
+
+  const palette = PALETTES[state] || PALETTES.idle;
+  const colors = palette.colors;
+
+  // ── Draw layered liquid blobs ──────────────────────────────
+  const numLayers = 4;
+
+  for (let layer = 0; layer < numLayers; layer++) {
+    const layerT = layer / numLayers;
+    const colorIdx = Math.floor(layerT * (colors.length - 1));
+    const nextIdx = Math.min(colorIdx + 1, colors.length - 1);
+    const ct = (layerT * (colors.length - 1)) - colorIdx;
+
+    const r = Math.round(lerp(colors[colorIdx][0], colors[nextIdx][0], ct));
+    const g = Math.round(lerp(colors[colorIdx][1], colors[nextIdx][1], ct));
+    const b = Math.round(lerp(colors[colorIdx][2], colors[nextIdx][2], ct));
+
+    const alpha = 0.08 + layerT * 0.25;
+    const timeOff = layer * 0.4;
+    const freqMult = 1 + layer * 0.3;
+
+    // Generate organic blob shape
+    const numPoints = 64;
+    const points = [];
+
+    for (let i = 0; i <= numPoints; i++) {
+      const angle = (i / numPoints) * Math.PI * 2;
+
+      // Amplitude based on state
+      let amp;
+      if (state === S.IDLE) amp = 2 + currentRMS * 4;
+      else if (state === S.LISTENING) amp = 8 + currentRMS * 25;
+      else if (state === S.THINKING) amp = 5 + 4 * Math.sin(orbPhase * 3 + timeOff);
+      else if (state === S.SPEAKING) amp = 10 + currentRMS * 30;
+      else amp = 3;
+
+      // Multi-freq organic deformation
+      const deform =
+        Math.sin(angle * 3 * freqMult + orbPhase * 2 + timeOff) * amp +
+        Math.sin(angle * 5 * freqMult - orbPhase * 1.5 + timeOff) * amp * 0.5 +
+        Math.sin(angle * 7 * freqMult + orbPhase * 3 + timeOff) * amp * 0.25;
+
+      const rad = baseR - layer * 8 + deform;
+      const x = cx + Math.cos(angle) * rad;
+      const y = cy + Math.sin(angle) * rad;
+      points.push({ x, y });
+    }
+
+    // Draw smooth blob
+    ctx.beginPath();
+    ctx.moveTo(points[0].x, points[0].y);
+    for (let i = 1; i < points.length - 1; i++) {
+      const mx = (points[i].x + points[i + 1].x) / 2;
+      const my = (points[i].y + points[i + 1].y) / 2;
+      ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+    }
+    ctx.closePath();
+
+    // Radial gradient fill
+    const grad = ctx.createRadialGradient(
+      cx - baseR * 0.2, cy - baseR * 0.2, 0,
+      cx, cy, baseR + 10
+    );
+    grad.addColorStop(0, `rgba(${r+40}, ${g+40}, ${b+40}, ${alpha * 1.2})`);
+    grad.addColorStop(0.6, `rgba(${r}, ${g}, ${b}, ${alpha})`);
+    grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
+
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Stroke on outermost layer
+    if (layer === numLayers - 1) {
+      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha * 0.6})`;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  }
+
+  // ── Central bright core ────────────────────────────────────
+  const coreR = baseR * 0.15 + currentRMS * baseR * 0.08;
+  const coreGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, coreR);
+  coreGrad.addColorStop(0, `rgba(255, 255, 255, ${0.15 + currentRMS * 0.15})`);
+  coreGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = coreGrad;
+  ctx.fillRect(0, 0, size, size);
+
+  // ── Specular highlight (top-left) ──────────────────────────
+  const specGrad = ctx.createRadialGradient(
+    cx - baseR * 0.25, cy - baseR * 0.3, 0,
+    cx - baseR * 0.25, cy - baseR * 0.3, baseR * 0.5
+  );
+  specGrad.addColorStop(0, 'rgba(255, 255, 255, 0.06)');
+  specGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = specGrad;
+  ctx.fillRect(0, 0, size, size);
+
+  requestAnimationFrame(drawOrb);
+}
+
+// ── Audio RMS Simulation ──────────────────────────────────────────────────
+setInterval(() => {
+  if (state === S.LISTENING) {
+    targetRMS = 0.15 + Math.random() * 0.3;
+  } else if (state === S.THINKING) {
+    targetRMS = 0.05 + 0.06 * Math.sin(Date.now() / 250);
+  } else if (state === S.SPEAKING) {
+    targetRMS = 0.2 + Math.random() * 0.5;
+  } else {
+    targetRMS = 0;
+  }
+}, 80);
+
+// ── Send Message ──────────────────────────────────────────────────────────
+async function sendMessage(text) {
+  if (!text || !text.trim() || isStreaming) return;
+  text = text.trim();
+  inputEl.value = '';
+  sendBtn.disabled = true;
+  isStreaming = true;
+
+  // Hide chips
+  chipsEl.classList.remove('visible');
+
+  // Show user message briefly
+  responseText.innerHTML = '';
+  responseArea.classList.add('visible');
+  setState(S.THINKING);
+
+  // Show thinking dots
+  responseText.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+
+  try {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'text_command', text }));
+    } else {
+      await demoResponse(text);
+    }
+  } catch (e) {
+    showResponse('⚠ Kernel not connected. Start with:\npython -m wodi --kernel-only');
+    finishStream();
+  }
+}
+
+function showResponse(text) {
+  streamBuffer = text;
+  responseText.textContent = text;
+  responseArea.classList.add('visible');
+}
+
+function appendStream(chunk) {
+  // Remove thinking dots if still there
+  const dots = responseText.querySelector('.thinking-dots');
+  if (dots) responseText.innerHTML = '';
+
+  streamBuffer += chunk;
+  responseText.innerHTML = streamBuffer + '<span class="stream-cursor"></span>';
+  responseArea.classList.add('visible');
+}
+
+function finishStream() {
+  const cursor = responseText.querySelector('.stream-cursor');
+  if (cursor) cursor.remove();
+  responseText.textContent = streamBuffer;
+
+  isStreaming = false;
+  setState(S.IDLE);
+  sendBtn.disabled = !inputEl.value.trim();
+
+  // Auto-dismiss response after delay and show chips
+  setTimeout(() => {
+    if (state === S.IDLE && !isStreaming) {
+      // Keep response visible, show chips again
+      chipsEl.classList.add('visible');
+    }
+  }, 1000);
+}
+
+// ── Demo Responses ────────────────────────────────────────────────────────
+const RESPONSES = {
+  'time': () => `It's ${new Date().toLocaleTimeString('en-US', {hour:'2-digit', minute:'2-digit'})}`,
+  'date': () => `Today is ${new Date().toLocaleDateString('en-US', {weekday:'long', month:'long', day:'numeric', year:'numeric'})}`,
+  'hello': () => `Hey! I'm Wodi, your local AI assistant. I can control your desktop, check system info, and analyze your screen. What would you like to do?`,
+  'hi': () => `Hi there! What can I help with?`,
+  'help': () => `I can help with:\n• Open and close apps\n• System info (CPU, RAM, processes)\n• Screenshot analysis\n• Voice commands ("Hey Jarvis")\n\nJust ask naturally!`,
+  'cpu': () => `CPU usage: ${Math.round(15 + Math.random()*40)}% across ${navigator.hardwareConcurrency || 4} cores`,
+  'ram': () => `RAM: ${(4+Math.random()*8).toFixed(1)} GB used of 16 GB total`,
+  'notepad': () => `Opening Notepad...\n\n✓ Notepad launched successfully`,
+  'chrome': () => `Opening Chrome → github.com...\n\n✓ Chrome launched\n✓ Navigated to github.com`,
+  'screen': () => `I can see your screen:\n\n• Active window: Code Editor\n• Visible: Source code, terminal, file explorer\n• Multiple tabs are open`,
+  'process': () => `Top processes:\n• chrome.exe — ${(Math.random()*12).toFixed(1)}% CPU\n• code.exe — ${(Math.random()*8).toFixed(1)}% CPU\n• explorer.exe — ${(Math.random()*4).toFixed(1)}% CPU\n\nTotal: ${Math.floor(80+Math.random()*100)} active`,
+};
+
+async function demoResponse(text) {
+  const lower = text.toLowerCase();
+  let fn = null;
+  for (const [key, f] of Object.entries(RESPONSES)) {
+    if (lower.includes(key)) { fn = f; break; }
+  }
+  const response = fn ? fn() : `I'm in demo mode — kernel not connected.\n\nStart with: python -m wodi --kernel-only\n\nTry: "What time is it?" or "Open Notepad"`;
+
+  // Simulate thinking
+  await sleep(500 + Math.random() * 500);
+
+  // Stream response
+  setState(S.SPEAKING);
+  streamBuffer = '';
+  const chars = response.split('');
+  for (let i = 0; i < chars.length; i++) {
+    appendStream(chars[i]);
+    targetRMS = 0.3 + Math.random() * 0.4;
+    if (i % 2 === 0) await sleep(12 + Math.random() * 25);
+  }
+
+  setTimeout(finishStream, 300);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── WebSocket ─────────────────────────────────────────────────────────────
+let ws = null;
+
+function connectWS() {
+  try {
+    ws = new WebSocket('ws://localhost:8765');
+    ws.onopen = () => {
+      connBadge.querySelector('.dot').className = 'dot online';
+      connText.textContent = 'Connected';
+    };
+    ws.onmessage = (e) => {
+      const msg = JSON.parse(e.data);
+      if (msg.type === 'wake') { openOverlay(); setState(S.LISTENING); }
+      else if (msg.type === 'thinking') { setState(S.THINKING); }
+      else if (msg.type === 'response_chunk') {
+        setState(S.SPEAKING);
+        appendStream(msg.chunk);
+        targetRMS = 0.4 + Math.random() * 0.5;
+      }
+      else if (msg.type === 'response_complete') { finishStream(); }
+    };
+    ws.onclose = () => {
+      ws = null;
+      connBadge.querySelector('.dot').className = 'dot offline';
+      connText.textContent = 'Demo mode';
+      setTimeout(connectWS, 4000);
+    };
+    ws.onerror = () => { ws = null; };
+  } catch (e) {
+    connBadge.querySelector('.dot').className = 'dot offline';
+    connText.textContent = 'Demo mode';
+  }
+}
+
+// ── Event Handlers ────────────────────────────────────────────────────────
+inputEl.addEventListener('input', () => {
+  sendBtn.disabled = !inputEl.value.trim();
+});
+
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage(inputEl.value);
+  }
+  if (e.key === 'Escape') closeOverlay();
+});
+
+sendBtn.addEventListener('click', () => sendMessage(inputEl.value));
+
+micBtn.addEventListener('click', () => {
+  if (state === S.LISTENING) {
+    setState(S.IDLE);
+  } else {
+    setState(S.LISTENING);
+    inputEl.focus();
+  }
+});
+
+// Click orb to toggle listening
+document.getElementById('orb-wrap').addEventListener('click', () => {
+  if (state === S.IDLE) {
+    setState(S.LISTENING);
+    inputEl.focus();
+  } else if (state === S.LISTENING) {
+    const text = inputEl.value;
+    if (text.trim()) sendMessage(text);
+    else setState(S.IDLE);
+  }
+});
+
+// Chips
+document.querySelectorAll('.chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    const prompt = chip.getAttribute('data-prompt');
+    inputEl.value = prompt;
+    sendBtn.disabled = false;
+    sendMessage(prompt);
+  });
+});
+
+// Global: Ctrl+Space, Escape
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey && e.code === 'Space') {
+    e.preventDefault();
+    toggleOverlay();
+  }
+  if (e.key === 'Escape' && isOpen) {
+    closeOverlay();
+  }
+});
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+drawOrb();
+connectWS();
+</script>
+</body>
+</html>

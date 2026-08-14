@@ -1,0 +1,29 @@
+# Hardware tier model assignments — Lite (CPU-only, ≤8GB RAM)
+router:
+  model: "qwen2.5:0.5b"
+  context_length: 2048
+
+planner:
+  model: "qwen2.5:1.5b"
+  context_length: 4096
+  temperature: 0.1
+
+critic:
+  model: "qwen2.5:0.5b"
+  context_length: 2048
+  temperature: 0.0
+
+synthesizer:
+  model: "qwen2.5:1.5b"
+  context_length: 4096
+  temperature: 0.3
+
+vision:
+  enabled: false               # Vision disabled on Lite — OCR only
+  model: null
+
+embedding:
+  model: "all-minilm"
+
+speculative_decoding:
+  enabled: false

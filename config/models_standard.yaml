@@ -1,0 +1,30 @@
+# Hardware tier model assignments — Standard (16GB RAM, entry GPU)
+router:
+  model: "qwen2.5:1.5b"
+  context_length: 4096
+
+planner:
+  model: "qwen2.5:1.5b"
+  context_length: 8192
+  temperature: 0.1
+
+critic:
+  model: "qwen2.5:1.5b"
+  context_length: 2048
+  temperature: 0.0
+
+synthesizer:
+  model: "qwen2.5:1.5b"
+  context_length: 8192
+  temperature: 0.3
+
+vision:
+  enabled: true
+  model: "llama3.2-vision:latest"
+  context_length: 4096
+
+embedding:
+  model: "nomic-embed-text"
+
+speculative_decoding:
+  enabled: false

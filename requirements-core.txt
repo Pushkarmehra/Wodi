@@ -1,0 +1,24 @@
+# requirements-core.txt
+# Minimal dependencies to run: wodi --kernel-only
+# Install with: pip install -r requirements-core.txt
+# These are small/fast installs — no heavy ML models
+
+# HTTP / Async
+httpx>=0.27.0
+aiofiles>=24.1.0
+tenacity>=9.0.0
+
+# Config / Data
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+pyyaml>=6.0.2
+
+# Logging / CLI
+structlog>=24.4.0
+rich>=13.7.0
+click>=8.1.7
+
+# System tools
+psutil>=6.0.0
+
+# Already installed: pydantic, structlog, rich, psutil

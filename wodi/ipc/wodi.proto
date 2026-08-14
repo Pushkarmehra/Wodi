@@ -1,0 +1,86 @@
+// wodi.proto — gRPC service definition for Phase 5 kernel↔UI IPC
+// Compile: python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. wodi.proto
+
+syntax = "proto3";
+
+package wodi;
+
+// ── Events: Kernel → UI ──────────────────────────────────────────────────────
+
+message WakeEvent {
+  double timestamp = 1;
+  string phrase_detected = 2;
+}
+
+message SpeechStartEvent {
+  double timestamp = 1;
+}
+
+message ResponseChunkEvent {
+  string chunk = 1;
+  bool is_final = 2;
+}
+
+message ConfirmRequestEvent {
+  string tool_name = 1;
+  string params_json = 2;
+  int32 timeout_seconds = 3;
+  string request_id = 4;
+}
+
+message KernelStatusEvent {
+  string status = 1;       // ready | error | stopping
+  string message = 2;
+  string tier = 3;
+}
+
+message KernelEvent {
+  oneof event {
+    WakeEvent wake = 1;
+    SpeechStartEvent speech_start = 2;
+    ResponseChunkEvent response_chunk = 3;
+    ConfirmRequestEvent confirm_request = 4;
+    KernelStatusEvent status = 5;
+  }
+}
+
+// ── Commands: UI → Kernel ─────────────────────────────────────────────────────
+
+message TextCommandRequest {
+  string text = 1;
+  string session_id = 2;
+}
+
+message ConfirmResponse {
+  string request_id = 1;
+  bool approved = 2;
+}
+
+message StopSpeakingRequest {}
+
+message UICommand {
+  oneof command {
+    TextCommandRequest text_command = 1;
+    ConfirmResponse confirm_response = 2;
+    StopSpeakingRequest stop_speaking = 3;
+  }
+}
+
+// ── Service Definition ────────────────────────────────────────────────────────
+
+service WodiKernel {
+  // Bi-directional stream: UI sends commands, kernel sends events
+  rpc Session (stream UICommand) returns (stream KernelEvent);
+
+  // One-off status check
+  rpc GetStatus (StatusRequest) returns (StatusResponse);
+}
+
+message StatusRequest {}
+
+message StatusResponse {
+  bool running = 1;
+  string tier = 2;
+  string version = 3;
+  double uptime_seconds = 4;
+}

@@ -1,0 +1,4 @@
+[console_scripts]
+wodi = wodi.__main__:main
+wodi-eval = wodi.observability.eval.harness:cli_run
+wodi-kernel = wodi.kernel.kernel:cli_start

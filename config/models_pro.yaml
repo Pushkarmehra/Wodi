@@ -1,0 +1,32 @@
+# Hardware tier model assignments — Pro (discrete GPU ≥8GB VRAM)
+router:
+  model: "llama3.2:3b"
+  context_length: 8192
+
+planner:
+  model: "qwen2.5:32b"
+  context_length: 32768
+  temperature: 0.1
+
+critic:
+  model: "qwen2.5:3b"
+  context_length: 4096
+  temperature: 0.0
+
+synthesizer:
+  model: "llama3.1:8b"
+  context_length: 16384
+  temperature: 0.3
+
+vision:
+  enabled: true
+  model: "qwen2.5vl:7b"
+  context_length: 8192
+
+embedding:
+  model: "nomic-embed-text"
+
+speculative_decoding:
+  enabled: true
+  draft_model: "qwen2.5:1.5b"
+  num_draft_tokens: 4
