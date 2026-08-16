@@ -91,6 +91,26 @@ class Planner:
             confidence=confidence,
         )
 
+        if agent == "react_agent":
+            # ReAct agent handles complex tasks autonomously via tool calling
+            state["is_simple"] = False
+            state["intent"] = user_request
+            state["subtasks"] = [
+                SubTask(
+                    id="t1",
+                    agent="react_agent",
+                    action="react_loop",
+                    params={"goal": user_request},
+                    depends_on=[],
+                    description=user_request,
+                    status="pending",
+                    result=None,
+                    error=None,
+                    retries=0,
+                )
+            ]
+            return state
+
         if agent != "planner" and direct_action and confidence >= 0.75:
             # Simple command — create a single subtask directly
             state["is_simple"] = True
@@ -115,7 +135,27 @@ class Planner:
         return await self._decompose(state)
 
     async def _route(self, user_request: str) -> dict:
-        """Fast intent classification via small model."""
+        """Fast intent classification via rules or small model."""
+        req = user_request.lower().strip()
+
+        # Fast-path heuristics (< 1ms)
+        if any(req.startswith(p) for p in ["open ", "launch ", "start "]):
+            return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "open_app"}
+        if any(req.startswith(p) for p in ["close ", "quit ", "exit "]):
+            return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "close_app"}
+        if any(k in req for k in ["what time", "what's the time", "current time", "what date", "what's the date", "today's date"]):
+            return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_time_date"}
+        if any(k in req for k in ["cpu", "ram", "system stats", "memory usage"]):
+            return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_system_stats"}
+        if any(k in req for k in ["battery", "power level"]):
+            return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_battery"}
+        if any(k in req for k in ["clipboard", "show clipboard"]):
+            return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_clipboard"}
+        if any(k in req for k in ["take screenshot", "screenshot"]):
+            return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "take_screenshot"}
+        if any(req.startswith(p) for p in ["search ", "google ", "look up "]):
+            return {"agent": "browser_agent", "confidence": 1.0, "direct_action": "search_web"}
+
         try:
             messages = [
                 Message(role="system", content=ROUTER_SYSTEM),
@@ -125,12 +165,12 @@ class Planner:
                 model=self._router_model,
                 messages=messages,
                 temperature=0.0,
-                max_tokens=128,
+                max_tokens=64,
             )
-            return self._parse_json(resp.content, default={"agent": "planner"})
+            return self._parse_json(resp.content, default={"agent": "react_agent"})
         except Exception as e:
-            log.warning("planner.route_error", error=str(e), fallback="planner")
-            return {"agent": "planner"}
+            log.warning("planner.route_error", error=str(e), fallback="react_agent")
+            return {"agent": "react_agent"}
 
     async def _decompose(self, state: WorkingMemoryState) -> WorkingMemoryState:
         """Full LLM-based task decomposition."""

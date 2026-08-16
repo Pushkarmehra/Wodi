@@ -19,14 +19,59 @@ TOOLS = {
 
 
 def search_web(query: str) -> dict:
-    """Search the web for a query. [Phase 3]"""
-    # TODO: Playwright + search engine automation
-    return {"success": False, "error": "Browser tools not yet implemented (Phase 3)"}
+    """Search the web for a query."""
+    try:
+        import httpx
+        from html.parser import HTMLParser
 
+        class DDGParser(HTMLParser):
+            def __init__(self):
+                super().__init__()
+                self.results = []
+                self.in_result = False
+                self.in_snippet = False
+                self.current_snippet = []
+
+            def handle_starttag(self, tag, attrs):
+                attrs = dict(attrs)
+                if tag == "a" and "class" in attrs and "result-snippet" in attrs["class"]:
+                    self.in_snippet = True
+
+            def handle_endtag(self, tag):
+                if tag == "a" and self.in_snippet:
+                    self.in_snippet = False
+                    self.results.append("".join(self.current_snippet).strip())
+                    self.current_snippet = []
+
+            def handle_data(self, data):
+                if self.in_snippet:
+                    self.current_snippet.append(data)
+
+        # Use DDG HTML Lite API (no JS required, very fast)
+        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+        resp = httpx.get(f"https://html.duckduckgo.com/html/?q={query}", headers=headers, timeout=10.0)
+        resp.raise_for_status()
+        
+        parser = DDGParser()
+        parser.feed(resp.text)
+        
+        if not parser.results:
+            return {"success": True, "results": ["No results found."]}
+            
+        return {"success": True, "results": parser.results[:5]}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 def navigate_to(url: str) -> dict:
-    """Navigate to a URL in the browser. [Phase 3]"""
-    return {"success": False, "error": "Browser tools not yet implemented (Phase 3)"}
+    """Navigate to a URL in the default system browser."""
+    try:
+        import webbrowser
+        if not url.startswith("http"):
+            url = "https://" + url
+        webbrowser.open(url)
+        return {"success": True, "message": f"Opened {url} in default browser."}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 def fill_form(selector: str, value: str) -> dict:

@@ -21,4 +21,9 @@ click>=8.1.7
 # System tools
 psutil>=6.0.0
 
+# Imaging / Screen
+numpy>=1.26.0
+Pillow>=10.4.0
+mss>=9.0.2
+
 # Already installed: pydantic, structlog, rich, psutil

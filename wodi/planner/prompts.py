@@ -13,6 +13,7 @@ Your role is to decompose a user's request into a structured list of subtasks,
 each assigned to the most appropriate specialist agent.
 
 ## Available Agents
+- react_agent: General-purpose agent that can autonomously call tools for complex, multi-step, or ambiguous tasks.
 - desktop_agent: Open/close/switch/focus applications, type text, press keys, window management
 - vision_agent: Capture and analyze the screen, read text, identify UI elements
 - browser_agent: Web search, navigate URLs, fill forms, click web elements
@@ -63,19 +64,20 @@ ROUTER_SYSTEM = """You are Wodi's Intent Router. Classify user commands quickly.
 
 Respond ONLY with a JSON object:
 {
-  "agent": "desktop_agent" | "vision_agent" | "browser_agent" | "system_agent" | "coding_agent" | "planner",
+  "agent": "desktop_agent" | "vision_agent" | "browser_agent" | "system_agent" | "coding_agent" | "react_agent",
   "confidence": 0.0-1.0,
   "direct_action": "open_app" | "close_app" | "get_time" | "take_screenshot" | "search_web" | null
 }
 
-Use "planner" when the request is complex, multi-step, or ambiguous.
+Use "react_agent" when the request is complex, multi-step, ambiguous, or requires calling multiple tools.
 Use a direct agent when the request is trivially simple.
 
 Examples:
 - "open chrome" → desktop_agent, open_app
 - "what time is it" → system_agent, get_time
 - "see my screen and tell me what's happening" → vision_agent, take_screenshot
-- "research and summarize the latest AI news then email it to me" → planner, null
+- "research and summarize the latest AI news then email it to me" → react_agent, null
+- "what's my cpu and battery?" → react_agent, null
 """
 
 CRITIC_SYSTEM = """You are Wodi's Critic — a quality verifier for completed subtasks.

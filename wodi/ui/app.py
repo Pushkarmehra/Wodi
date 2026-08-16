@@ -185,8 +185,10 @@ class WodiApp:
     # ── Overlay ───────────────────────────────────────────────────────────────
 
     def _setup_overlay(self) -> None:
+        # Ensure resources directory exists
+        RESOURCES_DIR.mkdir(parents=True, exist_ok=True)
         from wodi.ui.overlay import WodiOverlay
-        self._overlay = WodiOverlay(bridge=self._bridge)
+        self._overlay = WodiOverlay(bridge=self._bridge, submit_callback=self.submit_text)
 
     def _toggle_overlay(self) -> None:
         if self._overlay:

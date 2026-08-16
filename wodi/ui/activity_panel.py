@@ -30,9 +30,9 @@ log = get_logger(__name__)
 # ── Tier badge colors ─────────────────────────────────────────────────────────
 
 TIER_COLORS = {
-    "read_only":    {"bg": "rgba(52, 211, 153, 0.12)", "border": "rgba(52, 211, 153, 0.25)", "text": "#34d399", "dot": "#34d399"},
-    "user_confirm": {"bg": "rgba(245, 158, 11, 0.12)", "border": "rgba(245, 158, 11, 0.25)", "text": "#f59e0b", "dot": "#f59e0b"},
-    "privileged":   {"bg": "rgba(244, 63, 94, 0.12)",  "border": "rgba(244, 63, 94, 0.25)",  "text": "#f43f5e", "dot": "#f43f5e"},
+    "read_only":    {"bg": (52, 211, 153, 30), "border": (52, 211, 153, 64), "text": (52, 211, 153), "dot": "#34d399"},
+    "user_confirm": {"bg": (245, 158, 11, 30), "border": (245, 158, 11, 64), "text": (245, 158, 11), "dot": "#f59e0b"},
+    "privileged":   {"bg": (244, 63, 94, 30),  "border": (244, 63, 94, 64),  "text": (244, 63, 94), "dot": "#f43f5e"},
 }
 
 TIER_LABELS = {
@@ -79,8 +79,10 @@ class ActivityItemDelegate(QStyledItemDelegate):
             badge_rect = QPainterPath()
             badge_rect.addRoundedRect(badge_x, badge_y, badge_width, 20, 6, 6)
 
-            painter.fillPath(badge_rect, QBrush(QColor(tier_info["bg"])))
-            painter.setPen(QColor(tier_info["text"]))
+            bg_rgba = tier_info["bg"]
+            painter.fillPath(badge_rect, QBrush(QColor(*bg_rgba)))
+            text_rgb = tier_info["text"]
+            painter.setPen(QColor(*text_rgb))
             painter.setFont(QFont("Inter", 8, QFont.Weight.DemiBold))
             painter.drawText(
                 int(badge_x), int(badge_y), int(badge_width), 20,
@@ -317,8 +319,8 @@ class ActivityPanel(QWidget):
             "timestamp": ts,
         })
         tier_color = TIER_COLORS.get(tier, {})
-        text_color = tier_color.get("text", "#ffffff")
-        item.setForeground(QColor(text_color))
+        text_rgb = tier_color.get("text", (255, 255, 255))
+        item.setForeground(QColor(*text_rgb) if isinstance(text_rgb, tuple) else QColor(text_rgb))
         item.setFont(QFont("Inter", 10))
         item.setSizeHint(QSize(0, 44))
         self._list.insertItem(0, item)

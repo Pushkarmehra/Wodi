@@ -69,7 +69,6 @@ browser = [
 memory = [
     "sqlite-vec>=0.1.6",
     "llama-index-core>=0.10.60",
-    "llama-index-vector-stores-sqlite-vec",
 ]
 # pip install -e ".[ipc]"
 ipc = [

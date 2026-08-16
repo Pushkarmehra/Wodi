@@ -269,7 +269,7 @@ class WodiKernel:
 
     def _init_perception(self) -> None:
         cfg = self.config.perception
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
 
         # STT
         from wodi.perception.stt import STTEngine
@@ -368,18 +368,25 @@ class WodiKernel:
         assert self.dispatch
         state = await self.dispatch.execute(state)
 
-        # --- Synthesize ---
-        assert self.synthesizer
-        tone = self.semantic.get().tone if self.semantic else "concise"
+        # --- Fast-path Response formatting or Synthesize ---
+        fast_resp = self._fast_format_response(state)
         final_response = ""
 
-        if on_response_chunk:
-            # Streaming mode
-            async for chunk in self.synthesizer.stream(state, tone=tone):
-                on_response_chunk(chunk)
-                final_response += chunk
+        if fast_resp is not None:
+            log.info("kernel.fast_response_used", response=fast_resp[:60])
+            final_response = fast_resp
+            if on_response_chunk:
+                on_response_chunk(final_response)
         else:
-            final_response = await self.synthesizer.synthesize(state, tone=tone)
+            assert self.synthesizer
+            tone = self.semantic.get().tone if self.semantic else "concise"
+            if on_response_chunk:
+                # Streaming mode
+                async for chunk in self.synthesizer.stream(state, tone=tone):
+                    on_response_chunk(chunk)
+                    final_response += chunk
+            else:
+                final_response = await self.synthesizer.synthesize(state, tone=tone)
 
         state["final_response"] = final_response
 
@@ -438,6 +445,44 @@ class WodiKernel:
                 await self.process_request(result.text)
 
         asyncio.create_task(_transcribe())
+
+    def _fast_format_response(self, state: WorkingMemoryState) -> str | None:
+        """Instantly format simple responses without invoking the synthesizer LLM."""
+        subtasks = state.get("subtasks", [])
+        if len(subtasks) == 1 and subtasks[0].get("status") == "done":
+            task = subtasks[0]
+            agent = task.get("agent")
+            action = task.get("action")
+            res = task.get("result")
+
+            if agent == "react_agent" and isinstance(res, str):
+                return res
+
+            if isinstance(res, dict):
+                if action == "open_app":
+                    app = task.get("params", {}).get("app_name", "application")
+                    return f"Opened {app}." if res.get("success") else f"Could not open {app}: {res.get('error')}"
+                elif action == "close_app":
+                    app = task.get("params", {}).get("app_name", "application")
+                    return f"Closed {app}." if res.get("success") else f"Could not close {app}: {res.get('error')}"
+                elif action == "get_time_date":
+                    return f"It's {res.get('time')} on {res.get('date')}."
+                elif action == "get_battery":
+                    pct = res.get("percent")
+                    plugged = "plugged in" if res.get("plugged_in") else "on battery"
+                    return f"Battery is at {pct}% ({plugged})." if pct is not None else "No battery detected."
+                elif action == "get_system_stats":
+                    return f"CPU: {res.get('cpu_percent')}%, RAM: {res.get('ram_percent')}% ({res.get('ram_used_gb')} GB / {res.get('ram_total_gb')} GB)."
+                elif action == "get_clipboard":
+                    text = res.get("clipboard", "")
+                    return f'Clipboard content: "{text}"' if text else "Clipboard is empty."
+                elif action == "take_screenshot":
+                    return "Captured screenshot of active window."
+
+            if isinstance(res, str) and len(res) < 300:
+                return res
+
+        return None
 
     def _get_screen_ocr_text(self) -> str:
         """Get current screen OCR text for context (non-blocking best-effort)."""

@@ -26,14 +26,14 @@ if TYPE_CHECKING:
     from wodi.ui.app import KernelSignalBridge
 
 
-# ── Color Palettes per State ──────────────────────────────────────────────────
+# ── Color Palettes per State (Apple Intelligence Spectrum Scale) ─────────────
 
 STATE_COLORS = {
-    "idle":      {"primary": (99, 102, 241),  "secondary": (139, 92, 246),  "tertiary": (59, 130, 246)},
-    "wake":      {"primary": (59, 130, 246),  "secondary": (34, 211, 238),  "tertiary": (99, 102, 241)},
-    "listening": {"primary": (34, 211, 238),  "secondary": (52, 211, 153),  "tertiary": (99, 102, 241)},
-    "thinking":  {"primary": (245, 158, 11),  "secondary": (251, 146, 60),  "tertiary": (217, 119, 6)},
-    "speaking":  {"primary": (139, 92, 246),  "secondary": (99, 102, 241),  "tertiary": (244, 63, 94)},
+    "idle":      {"primary": (129, 140, 248), "secondary": (192, 132, 252), "tertiary": (96, 165, 250)},
+    "wake":      {"primary": (56, 189, 248),  "secondary": (168, 85, 247),  "tertiary": (236, 72, 153)},
+    "listening": {"primary": (56, 189, 248),  "secondary": (244, 63, 94),   "tertiary": (168, 85, 247)},
+    "thinking":  {"primary": (251, 191, 36),  "secondary": (245, 158, 11),  "tertiary": (217, 119, 6)},
+    "speaking":  {"primary": (168, 85, 247),  "secondary": (99, 102, 241),  "tertiary": (236, 72, 153)},
 }
 
 STATE_LABELS = {
@@ -190,12 +190,15 @@ class WodiOverlay(QWidget):
     Deep glassmorphism, aurora waveforms, professional typography.
     """
 
-    def __init__(self, bridge: Any | None = None, parent: QWidget | None = None) -> None:
+    def __init__(self, bridge: Any | None = None, submit_callback: Any | None = None, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._bridge = bridge
+        self._submit_callback = submit_callback
         self._caption_text = ""
         self._is_visible = False
         self._current_state = "idle"
+        self._current_user_message = ""   # Track current user input for history pairing
+        self._conversation_history: list[dict] = []  # [{"user": ..., "assistant": ..., "time": ...}]
 
         # Frameless, Always On Top
         self.setWindowFlags(
@@ -229,11 +232,11 @@ class WodiOverlay(QWidget):
         self._status_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._status_badge.setStyleSheet("""
             QLabel {
-                color: rgba(255, 255, 255, 0.85);
-                background: rgba(99, 102, 241, 0.15);
-                border: 1px solid rgba(99, 102, 241, 0.25);
-                border-radius: 12px;
-                padding: 5px 18px;
+                color: rgba(255, 255, 255, 0.88);
+                background: rgba(45, 45, 45, 0.35);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 9999px;
+                padding: 6px 18px;
                 letter-spacing: 0.5px;
             }
         """)
@@ -267,16 +270,16 @@ class WodiOverlay(QWidget):
         self._input.setFont(QFont("Inter", 11))
         self._input.setStyleSheet("""
             QLineEdit {
-                background: rgba(255, 255, 255, 0.06);
-                border: 1px solid rgba(255, 255, 255, 0.10);
+                background: rgba(35, 35, 35, 0.25);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 border-radius: 14px;
-                color: rgba(255, 255, 255, 0.92);
+                color: rgba(255, 255, 255, 0.94);
                 padding: 10px 20px;
-                selection-background-color: rgba(99, 102, 241, 0.3);
+                selection-background-color: rgba(255, 255, 255, 0.25);
             }
             QLineEdit:focus {
-                border: 1px solid rgba(99, 102, 241, 0.4);
-                background: rgba(255, 255, 255, 0.10);
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                background: rgba(60, 60, 60, 0.35);
             }
         """)
         self._input.returnPressed.connect(self._submit_text)
@@ -289,14 +292,15 @@ class WodiOverlay(QWidget):
         send_btn.setStyleSheet("""
             QPushButton {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #6366f1, stop:1 #8b5cf6);
-                border: none;
+                    stop:0 #6366f1, stop:0.5 #8b5cf6, stop:1 #d946ef);
+                border: 1px solid rgba(255, 255, 255, 0.25);
                 border-radius: 12px;
                 color: #FFFFFF;
             }
             QPushButton:hover {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                    stop:0 #5558e6, stop:1 #7c4dff);
+                    stop:0 #4f46e5, stop:0.5 #7c3aed, stop:1 #c026d3);
+                border-color: rgba(255, 255, 255, 0.40);
             }
             QPushButton:pressed {
                 background: #4f46e5;
@@ -308,7 +312,7 @@ class WodiOverlay(QWidget):
         main_layout.addWidget(input_container)
 
     def paintEvent(self, event: Any) -> None:
-        """Draw premium dark glassmorphism background with state-reactive border."""
+        """Draw Apple Intelligence frosted liquid glass background with spectrum border."""
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
@@ -318,30 +322,30 @@ class WodiOverlay(QWidget):
         path = QPainterPath()
         path.addRoundedRect(rect, corner_r, corner_r)
 
-        # Deep dark background
+        # Deep frosted liquid glass backdrop
         bg_grad = QLinearGradient(0, 0, 0, self.height())
-        bg_grad.setColorAt(0.0, QColor(12, 10, 22, 235))
-        bg_grad.setColorAt(0.5, QColor(10, 10, 18, 240))
-        bg_grad.setColorAt(1.0, QColor(8, 8, 14, 245))
+        bg_grad.setColorAt(0.0, QColor(14, 14, 24, 225))
+        bg_grad.setColorAt(0.5, QColor(10, 10, 18, 235))
+        bg_grad.setColorAt(1.0, QColor(8, 8, 14, 240))
         painter.fillPath(path, QBrush(bg_grad))
 
-        # State-reactive gradient border
+        # State-reactive Apple spectrum border
         colors = STATE_COLORS.get(self._current_state, STATE_COLORS["idle"])
         pr, pg, pb = colors["primary"]
         sr, sg, sb = colors["secondary"]
 
         border_grad = QLinearGradient(0, 0, self.width(), self.height())
-        border_grad.setColorAt(0.0, QColor(pr, pg, pb, 80))
-        border_grad.setColorAt(0.5, QColor(sr, sg, sb, 50))
-        border_grad.setColorAt(1.0, QColor(pr, pg, pb, 80))
+        border_grad.setColorAt(0.0, QColor(pr, pg, pb, 90))
+        border_grad.setColorAt(0.5, QColor(sr, sg, sb, 60))
+        border_grad.setColorAt(1.0, QColor(pr, pg, pb, 90))
 
         border_pen = QPen(QBrush(border_grad), 1.5)
         painter.setPen(border_pen)
         painter.drawPath(path)
 
-        # Subtle inner glow at top
+        # Subtle specular top catch-light
         glow_grad = QLinearGradient(0, 3, 0, 40)
-        glow_grad.setColorAt(0.0, QColor(pr, pg, pb, 15))
+        glow_grad.setColorAt(0.0, QColor(pr, pg, pb, 25))
         glow_grad.setColorAt(1.0, QColor(pr, pg, pb, 0))
         glow_path = QPainterPath()
         glow_path.addRoundedRect(QRectF(rect.x(), rect.y(), rect.width(), 36), corner_r, corner_r)
@@ -362,10 +366,13 @@ class WodiOverlay(QWidget):
         text = self._input.text().strip()
         if text:
             self._input.clear()
+            # Reset response accumulator for new request
+            self._caption_text = ""
+            self._current_user_message = text
             self._caption.setText(f"You: {text}")
             self.set_state("thinking")
-            if self._bridge and hasattr(self._bridge.parent(), "submit_text"):
-                self._bridge.parent().submit_text(text)
+            if self._submit_callback:
+                self._submit_callback(text)
 
     def show_listening(self) -> None:
         self.set_state("listening")
@@ -395,11 +402,11 @@ class WodiOverlay(QWidget):
 
         self._status_badge.setStyleSheet(f"""
             QLabel {{
-                color: rgba(255, 255, 255, 0.88);
-                background: rgba({pr}, {pg}, {pb}, 0.12);
-                border: 1px solid rgba({pr}, {pg}, {pb}, 0.25);
-                border-radius: 12px;
-                padding: 5px 18px;
+                color: rgba(255, 255, 255, 0.90);
+                background: rgba({pr}, {pg}, {pb}, 0.15);
+                border: 1px solid rgba({pr}, {pg}, {pb}, 0.30);
+                border-radius: 9999px;
+                padding: 6px 18px;
                 letter-spacing: 0.5px;
             }}
         """)
@@ -415,6 +422,18 @@ class WodiOverlay(QWidget):
         self._orb.set_rms(0.55)
 
     def _on_response_done(self) -> None:
+        # Save the completed conversation to history
+        if self._current_user_message and self._caption_text:
+            import time as _time
+            self._conversation_history.append({
+                "user": self._current_user_message,
+                "assistant": self._caption_text.strip(),
+                "time": _time.time(),
+            })
+            # Keep max 50 entries
+            if len(self._conversation_history) > 50:
+                self._conversation_history = self._conversation_history[-50:]
+        self._current_user_message = ""
         self.set_state("idle")
         QTimer.singleShot(4000, self._reset_caption)
 
@@ -422,6 +441,10 @@ class WodiOverlay(QWidget):
         self._caption_text = ""
         self._caption.setText("")
         self.set_state("idle")
+
+    def get_history(self) -> list[dict]:
+        """Return the conversation history."""
+        return list(self._conversation_history)
 
     def mousePressEvent(self, event: Any) -> None:
         if event.button() == Qt.MouseButton.LeftButton:

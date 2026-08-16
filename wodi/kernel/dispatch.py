@@ -18,6 +18,7 @@ from wodi.agents.vision_agent import VisionAgent
 from wodi.agents.system_agent import SystemAgent
 from wodi.agents.browser_agent import BrowserAgent
 from wodi.agents.coding_agent import CodingAgent
+from wodi.agents.react_agent import ReActAgent
 from wodi.critic.critic import Critic
 from wodi.planner.working_memory import (
     SubTask,
@@ -184,6 +185,13 @@ def build_dispatch_bus(
 
     if config.agents.coding_enabled:
         agents["coding_agent"] = CodingAgent(confirm_callback=confirm_callback)
+
+    if ollama_client:
+        agents["react_agent"] = ReActAgent(
+            ollama_client=ollama_client,
+            model=config.models.planner,
+            confirm_callback=confirm_callback,
+        )
 
     log.info("dispatch.agents_ready", agents=list(agents.keys()))
     return DispatchBus(agents=agents, critic=critic)
