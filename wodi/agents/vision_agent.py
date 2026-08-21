@@ -13,14 +13,14 @@ from typing import Any
 
 from wodi.agents.base_agent import AgentResult, BaseAgent
 from wodi.utils.logging import get_logger
-from wodi.utils.ollama_client import OllamaClient
+from wodi.utils.groq_client import GroqClient
 
 log = get_logger(__name__)
 
 
 class VisionAgent(BaseAgent):
     """
-    Vision specialist agent — captures screen and queries Qwen2.5-VL.
+    Vision specialist agent — captures screen and queries Groq Vision / OCR.
     """
 
     AGENT_NAME = "vision_agent"
@@ -36,12 +36,13 @@ class VisionAgent(BaseAgent):
 
     def __init__(
         self,
-        ollama_client: OllamaClient,
-        vision_model: str = "qwen2.5vl:3b",
+        llm_client: Any = None,
+        ollama_client: Any = None,
+        vision_model: str = "llama-3.2-11b-vision-preview",
         confirm_callback: Any | None = None,
     ) -> None:
         super().__init__(max_retries=1, confirm_callback=confirm_callback)
-        self._client = ollama_client
+        self._client = llm_client or ollama_client
         self._model = vision_model
 
     async def execute_action(self, action: str, params: dict, context: dict) -> AgentResult:

@@ -21,7 +21,7 @@ from typing import Any
 from wodi.agents.base_agent import AgentResult
 from wodi.planner.prompts import CRITIC_SYSTEM
 from wodi.utils.logging import get_logger
-from wodi.utils.ollama_client import Message, OllamaClient
+from wodi.utils.groq_client import Message, GroqClient
 
 log = get_logger(__name__)
 
@@ -31,7 +31,7 @@ class Critic:
     Verifies agent subtask results using a small LLM judge.
 
     Usage:
-        critic = Critic(client=ollama_client, model="qwen2.5:1.5b")
+        critic = Critic(client=groq_client, model="llama-3.1-8b-instant")
         verdict = await critic.verify(
             goal="Open Notepad",
             result=agent_result,
@@ -42,8 +42,8 @@ class Critic:
 
     def __init__(
         self,
-        client: OllamaClient | None = None,
-        model: str = "qwen2.5:1.5b",
+        client: GroqClient | Any | None = None,
+        model: str = "llama-3.1-8b-instant",
         use_heuristics: bool = False,  # Lite tier: skip LLM, use rule-based check
     ) -> None:
         self._client = client

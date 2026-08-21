@@ -46,23 +46,18 @@ perception:
     engine: "easyocr"          # easyocr | tesseract
     language: "en"
 
-# ── Models ───────────────────────────────────────────────────────────────────
+# ── Models (Groq Cloud Engine) ───────────────────────────────────────────────
 models:
-  ollama_host: "http://localhost:11434"
-  ollama_timeout: 45            # Reduced from 120s \u2013 react_agent has its own 30s per-iteration timeout
+  provider: "groq"
+  timeout: 30
 
-  # Per-tier overrides — auto-selected based on hardware detection
-  # Override individual keys here to use a specific model regardless of tier.
-  router: "qwen2.5:0.5b"       # Smallest/fastest for intent routing
-  planner: "qwen2.5:1.5b"      # Task decomposition model
-  critic: "qwen2.5:0.5b"       # Verifier (using heuristics on standard tier anyway)
-  synthesizer: "qwen2.5:1.5b"  # Final response model
-  vision: ""                   # VLM model (leave empty = auto)
-  tts_model: ""                # TTS model path (leave empty = auto)
-
-  # Speculative decoding (Pro tier only)
-  speculative_decoding: true
-  draft_model: ""              # Auto-selected for Pro tier
+  # Groq Model Configuration
+  router: "openai/gpt-oss-20b"         # Ultra-fast model for intent classification (<100ms)
+  planner: "openai/gpt-oss-120b"       # High reasoning 120B model for task decomposition
+  critic: "openai/gpt-oss-20b"         # Fast verification model
+  synthesizer: "openai/gpt-oss-120b"   # High quality 120B model for response generation
+  vision: "llama-3.2-11b-vision-preview"  # Groq multimodal vision model
+  tts_model: ""
 
 # ── Agents ───────────────────────────────────────────────────────────────────
 agents:

@@ -11,11 +11,11 @@ from typing import Any
 from wodi.agents.base_agent import AgentResult, BaseAgent
 from wodi.tools.tool_registry import get_tool_callable, get_tool_schemas
 from wodi.utils.logging import get_logger
-from wodi.utils.ollama_client import Message
+from wodi.utils.groq_client import Message
 
 log = get_logger(__name__)
 
-REACT_SYSTEM = """You are Wodi, a powerful local AI assistant.
+REACT_SYSTEM = """You are Wodi, a powerful AI desktop assistant.
 You have access to a set of tools to help the user.
 Use them as needed to accomplish the task.
 If you need more information, use the tools to gather it.
@@ -69,14 +69,15 @@ class ReActAgent(BaseAgent):
 
     def __init__(
         self,
-        ollama_client: Any,
-        model: str = "qwen2.5:1.5b",
+        llm_client: Any = None,
+        ollama_client: Any = None,
+        model: str = "openai/gpt-oss-120b",
         confirm_callback: Any | None = None,
-        max_iterations: int = 5,       # Reduced from 10 — small models loop on CPU
-        iteration_timeout: float = 30.0,  # Per-LLM-call timeout in seconds
+        max_iterations: int = 5,
+        iteration_timeout: float = 30.0,
     ) -> None:
         super().__init__(max_retries=1, confirm_callback=confirm_callback)
-        self._client = ollama_client
+        self._client = llm_client or ollama_client
         self._model = model
         self._max_iterations = max_iterations
         self._iteration_timeout = iteration_timeout

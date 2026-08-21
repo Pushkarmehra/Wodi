@@ -21,7 +21,7 @@ from wodi.planner.prompts import (
 )
 from wodi.planner.working_memory import SubTask, WorkingMemoryState, make_initial_state
 from wodi.utils.logging import get_logger
-from wodi.utils.ollama_client import Message, OllamaClient
+from wodi.utils.groq_client import Message, GroqClient
 
 log = get_logger(__name__)
 
@@ -31,8 +31,8 @@ class Planner:
     Decomposes user requests into ordered subtask lists.
 
     Usage:
-        planner = Planner(client=ollama_client, router_model="qwen2.5:1.5b",
-                          planner_model="qwen2.5:7b")
+        planner = Planner(client=groq_client, router_model="llama-3.1-8b-instant",
+                          planner_model="llama-3.3-70b-versatile")
         state = await planner.plan(
             user_request="Open Notepad and type Hello World",
             screen_context="Desktop visible",
@@ -43,9 +43,9 @@ class Planner:
 
     def __init__(
         self,
-        client: OllamaClient,
-        router_model: str = "qwen2.5:1.5b",
-        planner_model: str = "qwen2.5:7b",
+        client: GroqClient | Any,
+        router_model: str = "llama-3.1-8b-instant",
+        planner_model: str = "llama-3.3-70b-versatile",
         session_id: str | None = None,
     ) -> None:
         self._client = client
@@ -303,9 +303,8 @@ class Planner:
                     # Skip leading articles ("open the notepad" → "notepad")
                     while words and words[0].lower() in _ARTICLES:
                         words = words[1:]
-                    app = words[0] if words else ""
-                    if app:
-                        params["app_name"] = app.lower()  # normalise for APP_ALIASES lookup
+                    if words:
+                        params["app_name"] = " ".join(words).strip().lower()
                     break
 
         elif action == "close_app":
@@ -315,9 +314,8 @@ class Planner:
                     words = request[idx:].strip().split()
                     while words and words[0].lower() in _ARTICLES:
                         words = words[1:]
-                    app = words[0] if words else ""
-                    if app:
-                        params["app_name"] = app.lower()  # normalise for APP_ALIASES lookup
+                    if words:
+                        params["app_name"] = " ".join(words).strip().lower()
                     break
 
         elif action == "search_web":

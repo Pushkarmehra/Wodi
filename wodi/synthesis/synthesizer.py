@@ -15,7 +15,7 @@ from typing import Any
 from wodi.planner.prompts import SYNTHESIZER_SYSTEM
 from wodi.planner.working_memory import WorkingMemoryState
 from wodi.utils.logging import get_logger
-from wodi.utils.ollama_client import Message, OllamaClient
+from wodi.utils.groq_client import Message, GroqClient
 
 log = get_logger(__name__)
 
@@ -25,7 +25,7 @@ class Synthesizer:
     Produces the final response from all agent results.
 
     Usage:
-        synth = Synthesizer(client=ollama_client, model="qwen2.5:7b")
+        synth = Synthesizer(client=groq_client, model="llama-3.3-70b-versatile")
         # Streaming:
         async for chunk in synth.stream(state, tone="concise"):
             print(chunk, end="", flush=True)
@@ -35,8 +35,8 @@ class Synthesizer:
 
     def __init__(
         self,
-        client: OllamaClient,
-        model: str = "qwen2.5:7b",
+        client: GroqClient | Any,
+        model: str = "llama-3.3-70b-versatile",
         tone: str = "concise",
     ) -> None:
         self._client = client

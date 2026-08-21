@@ -169,11 +169,13 @@ class DispatchBus:
 
 def build_dispatch_bus(
     config: Any,
-    ollama_client: Any,
+    llm_client: Any = None,
+    ollama_client: Any = None,
     confirm_callback: Any | None = None,
     critic: Critic | None = None,
 ) -> DispatchBus:
     """Factory function to build the DispatchBus with all configured agents."""
+    client = llm_client or ollama_client
     agents: dict[str, Any] = {}
 
     if config.agents.desktop_enabled:
@@ -181,7 +183,7 @@ def build_dispatch_bus(
 
     if config.agents.vision_enabled and config.models.vision:
         agents["vision_agent"] = VisionAgent(
-            ollama_client=ollama_client,
+            llm_client=client,
             vision_model=config.models.vision,
             confirm_callback=confirm_callback,
         )
@@ -195,9 +197,9 @@ def build_dispatch_bus(
     if config.agents.coding_enabled:
         agents["coding_agent"] = CodingAgent(confirm_callback=confirm_callback)
 
-    if ollama_client:
+    if client:
         agents["react_agent"] = ReActAgent(
-            ollama_client=ollama_client,
+            llm_client=client,
             model=config.models.planner,
             confirm_callback=confirm_callback,
         )

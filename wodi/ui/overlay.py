@@ -85,100 +85,105 @@ class AuroraVisualizer(QWidget):
         self.update()
 
     def paintEvent(self, event: Any) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter = QPainter()
+        if not painter.begin(self):
+            return
 
-        w = self.width()
-        h = self.height()
-        cx = w / 2.0
-        cy = h / 2.0
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        colors = STATE_COLORS.get(self._state, STATE_COLORS["idle"])
+            w = self.width()
+            h = self.height()
+            cx = w / 2.0
+            cy = h / 2.0
 
-        layers = [
-            {"alpha": 0.08, "freq_mult": 1.0, "amp_mult": 0.6, "time_off": 0.7, "width": 16, "color_key": "tertiary"},
-            {"alpha": 0.20, "freq_mult": 1.3, "amp_mult": 0.85, "time_off": 0.3, "width": 7, "color_key": "secondary"},
-            {"alpha": 0.55, "freq_mult": 1.6, "amp_mult": 1.0, "time_off": 0.0, "width": 3, "color_key": "primary"},
-        ]
+            colors = STATE_COLORS.get(self._state, STATE_COLORS["idle"])
 
-        for layer in layers:
-            t = self._phase + layer["time_off"]
-            r, g, b = colors[layer["color_key"]]
-            points = []
-            num_points = 90
+            layers = [
+                {"alpha": 0.08, "freq_mult": 1.0, "amp_mult": 0.6, "time_off": 0.7, "width": 16, "color_key": "tertiary"},
+                {"alpha": 0.20, "freq_mult": 1.3, "amp_mult": 0.85, "time_off": 0.3, "width": 7, "color_key": "secondary"},
+                {"alpha": 0.55, "freq_mult": 1.6, "amp_mult": 1.0, "time_off": 0.0, "width": 3, "color_key": "primary"},
+            ]
 
-            for i in range(num_points + 1):
-                nx = i / num_points
-                x = nx * w
+            for layer in layers:
+                t = self._phase + layer["time_off"]
+                r, g, b = colors[layer["color_key"]]
+                points = []
+                num_points = 90
 
-                if self._state == "idle":
-                    amp = 3 + self._rms * 5
-                elif self._state == "listening":
-                    amp = 14 + self._rms * 35
-                elif self._state == "thinking":
-                    amp = 8 + 6 * math.sin(t * 2.5)
-                elif self._state == "speaking":
-                    amp = 16 + self._rms * 40
-                else:
-                    amp = 5
+                for i in range(num_points + 1):
+                    nx = i / num_points
+                    x = nx * w
 
-                amp *= layer["amp_mult"]
-                freq = layer["freq_mult"]
-                wave = (
-                    math.sin(nx * math.pi * 2.8 * freq + t * 2.0) * amp
-                    + math.sin(nx * math.pi * 4.2 * freq - t * 1.5) * amp * 0.5
-                    + math.sin(nx * math.pi * 6.8 * freq + t * 3.0) * amp * 0.25
-                    + math.sin(nx * math.pi * 1.2 * freq + t * 0.8) * amp * 0.4
-                )
+                    if self._state == "idle":
+                        amp = 3 + self._rms * 5
+                    elif self._state == "listening":
+                        amp = 14 + self._rms * 35
+                    elif self._state == "thinking":
+                        amp = 8 + 6 * math.sin(t * 2.5)
+                    elif self._state == "speaking":
+                        amp = 16 + self._rms * 40
+                    else:
+                        amp = 5
 
-                envelope = math.sin(nx * math.pi) ** 1.5
-                y = cy + wave * envelope
-                points.append(QPointF(x, y))
+                    amp *= layer["amp_mult"]
+                    freq = layer["freq_mult"]
+                    wave = (
+                        math.sin(nx * math.pi * 2.8 * freq + t * 2.0) * amp
+                        + math.sin(nx * math.pi * 4.2 * freq - t * 1.5) * amp * 0.5
+                        + math.sin(nx * math.pi * 6.8 * freq + t * 3.0) * amp * 0.25
+                        + math.sin(nx * math.pi * 1.2 * freq + t * 0.8) * amp * 0.4
+                    )
 
-            # Filled path
-            path = QPainterPath()
-            path.moveTo(points[0])
-            for i in range(1, len(points) - 1):
-                mx = (points[i].x() + points[i + 1].x()) / 2
-                my = (points[i].y() + points[i + 1].y()) / 2
-                path.quadTo(points[i], QPointF(mx, my))
-            path.lineTo(points[-1])
+                    envelope = math.sin(nx * math.pi) ** 1.5
+                    y = cy + wave * envelope
+                    points.append(QPointF(x, y))
 
-            for i in range(len(points) - 1, -1, -1):
-                mirror_y = cy - (points[i].y() - cy)
-                path.lineTo(QPointF(points[i].x(), mirror_y))
-            path.closeSubpath()
+                # Filled path
+                path = QPainterPath()
+                path.moveTo(points[0])
+                for i in range(1, len(points) - 1):
+                    mx = (points[i].x() + points[i + 1].x()) / 2
+                    my = (points[i].y() + points[i + 1].y()) / 2
+                    path.quadTo(points[i], QPointF(mx, my))
+                path.lineTo(points[-1])
 
-            grad = QLinearGradient(0, cy, w, cy)
-            grad.setColorAt(0.0, QColor(r, g, b, int(255 * layer["alpha"] * 0.5)))
-            grad.setColorAt(0.5, QColor(r, g, b, int(255 * layer["alpha"])))
-            grad.setColorAt(1.0, QColor(r, g, b, int(255 * layer["alpha"] * 0.5)))
-            painter.fillPath(path, QBrush(grad))
+                for i in range(len(points) - 1, -1, -1):
+                    mirror_y = cy - (points[i].y() - cy)
+                    path.lineTo(QPointF(points[i].x(), mirror_y))
+                path.closeSubpath()
 
-            # Top stroke line
-            stroke_path = QPainterPath()
-            stroke_path.moveTo(points[0])
-            for i in range(1, len(points) - 1):
-                mx = (points[i].x() + points[i + 1].x()) / 2
-                my = (points[i].y() + points[i + 1].y()) / 2
-                stroke_path.quadTo(points[i], QPointF(mx, my))
-            stroke_path.lineTo(points[-1])
+                grad = QLinearGradient(0, cy, w, cy)
+                grad.setColorAt(0.0, QColor(r, g, b, int(255 * layer["alpha"] * 0.5)))
+                grad.setColorAt(0.5, QColor(r, g, b, int(255 * layer["alpha"])))
+                grad.setColorAt(1.0, QColor(r, g, b, int(255 * layer["alpha"] * 0.5)))
+                painter.fillPath(path, QBrush(grad))
 
-            pen = QPen(QColor(r, g, b, int(255 * layer["alpha"] * 1.5)), layer["width"])
-            pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-            painter.setPen(pen)
-            painter.drawPath(stroke_path)
+                # Top stroke line
+                stroke_path = QPainterPath()
+                stroke_path.moveTo(points[0])
+                for i in range(1, len(points) - 1):
+                    mx = (points[i].x() + points[i + 1].x()) / 2
+                    my = (points[i].y() + points[i + 1].y()) / 2
+                    stroke_path.quadTo(points[i], QPointF(mx, my))
+                stroke_path.lineTo(points[-1])
 
-        # Center glow
-        pr, pg, pb = colors["primary"]
-        glow_r = 18 + self._rms * 12
-        glow = QRadialGradient(cx, cy, glow_r)
-        glow.setColorAt(0.0, QColor(pr, pg, pb, 50))
-        glow.setColorAt(1.0, QColor(pr, pg, pb, 0))
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QBrush(glow))
-        painter.drawEllipse(QRectF(cx - glow_r, cy - glow_r, glow_r * 2, glow_r * 2))
-        painter.end()
+                pen = QPen(QColor(r, g, b, int(255 * layer["alpha"] * 1.5)), layer["width"])
+                pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                painter.setPen(pen)
+                painter.drawPath(stroke_path)
+
+            # Center glow
+            pr, pg, pb = colors["primary"]
+            glow_r = 18 + self._rms * 12
+            glow = QRadialGradient(cx, cy, glow_r)
+            glow.setColorAt(0.0, QColor(pr, pg, pb, 50))
+            glow.setColorAt(1.0, QColor(pr, pg, pb, 0))
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(glow))
+            painter.drawEllipse(QRectF(cx - glow_r, cy - glow_r, glow_r * 2, glow_r * 2))
+        finally:
+            painter.end()
 
 
 class ChatBubble(QFrame):

@@ -122,41 +122,23 @@ class DesktopAgent(BaseAgent):
         if not handler:
             return AgentResult(success=False, output=None, error=f"Unknown action: {action}")
 
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(None, lambda: asyncio.run(handler(params, context)))
+        return await handler(params, context)
 
     # ── Action Implementations ────────────────────────────────────────────────
 
     async def _open_app(self, params: dict, context: dict) -> AgentResult:
-        app_name = params.get("app_name", "").lower().strip()
-        exe = APP_ALIASES.get(app_name, app_name)
+        from wodi.tools.builtin.desktop_tools import open_app as launch_app
 
-        log.info("desktop.open_app", app=app_name, exe=exe)
-        try:
-            if exe.startswith("ms-settings:"):
-                os.startfile(exe)
-            else:
-                subprocess.Popen(
-                    exe,
-                    shell=True,
-                    creationflags=subprocess.CREATE_NEW_CONSOLE if "cmd" in exe else 0,
-                )
-            await asyncio.sleep(1.5)  # Wait for window to appear
-            return AgentResult(success=True, output=f"Opened {app_name}")
-        except FileNotFoundError:
-            # Try searching via Where command
-            try:
-                result = subprocess.run(["where", exe], capture_output=True, text=True)
-                if result.returncode == 0:
-                    path = result.stdout.strip().splitlines()[0]
-                    subprocess.Popen(path, shell=False)
-                    await asyncio.sleep(1.5)
-                    return AgentResult(success=True, output=f"Opened {app_name} from {path}")
-            except Exception:
-                pass
-            return AgentResult(success=False, output=None, error=f"Could not find '{app_name}' ({exe})")
-        except Exception as e:
-            return AgentResult(success=False, output=None, error=str(e))
+        app_name = params.get("app_name", "").strip()
+        if not app_name:
+            return AgentResult(success=False, output=None, error="No application name provided.")
+
+        log.info("desktop.open_app", app=app_name)
+        res = launch_app(app_name)
+        if res.get("success"):
+            return AgentResult(success=True, output=res.get("message", f"Opened {app_name}"))
+        else:
+            return AgentResult(success=False, output=None, error=res.get("error", f"Could not open {app_name}"))
 
     async def _close_app(self, params: dict, context: dict) -> AgentResult:
         app_name = params.get("app_name", "").lower().strip()

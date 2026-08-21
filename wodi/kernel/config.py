@@ -30,14 +30,14 @@ DEFAULT_CONFIG_PATH = Path(__file__).parent.parent.parent / "config" / "wodi_con
 
 @dataclass
 class ModelConfig:
-    ollama_host: str = "http://localhost:11434"
-    ollama_timeout: float = 120.0
-    router: str = "qwen2.5:1.5b"
-    planner: str = "qwen2.5:7b"
-    critic: str = "qwen2.5:1.5b"
-    synthesizer: str = "qwen2.5:7b"
-    vision: str = "qwen2.5vl:3b"
-    embedding: str = "nomic-embed-text"
+    provider: str = "groq"
+    timeout: float = 30.0
+    router: str = "llama-3.1-8b-instant"
+    planner: str = "llama-3.3-70b-versatile"
+    critic: str = "llama-3.1-8b-instant"
+    synthesizer: str = "llama-3.3-70b-versatile"
+    vision: str = "llama-3.2-11b-vision-preview"
+    embedding: str = ""
     speculative_decoding: bool = False
     draft_model: str = ""
 
@@ -238,14 +238,14 @@ def _build_model_config(raw: dict, tier_models: dict) -> ModelConfig:
     tm_spec = tier_models.get("speculative_decoding", {})
 
     return ModelConfig(
-        ollama_host=m.get("ollama_host", "http://localhost:11434"),
-        ollama_timeout=float(m.get("ollama_timeout", 120)),
-        router=m.get("router") or tm_router.get("model", "qwen2.5:1.5b"),
-        planner=m.get("planner") or tm_planner.get("model", "qwen2.5:7b"),
-        critic=m.get("critic") or tm_critic.get("model", "qwen2.5:1.5b"),
-        synthesizer=m.get("synthesizer") or tm_synth.get("model", "qwen2.5:7b"),
-        vision=m.get("vision") or tm_vision.get("model", "qwen2.5vl:3b"),
-        embedding=tm_embed.get("model", "nomic-embed-text"),
+        provider=m.get("provider", "groq"),
+        timeout=float(m.get("timeout", m.get("ollama_timeout", 30))),
+        router=m.get("router") or tm_router.get("model", "llama-3.1-8b-instant"),
+        planner=m.get("planner") or tm_planner.get("model", "llama-3.3-70b-versatile"),
+        critic=m.get("critic") or tm_critic.get("model", "llama-3.1-8b-instant"),
+        synthesizer=m.get("synthesizer") or tm_synth.get("model", "llama-3.3-70b-versatile"),
+        vision=m.get("vision") or tm_vision.get("model", "llama-3.2-11b-vision-preview"),
+        embedding=tm_embed.get("model", ""),
         speculative_decoding=bool(
             tm_spec.get("enabled", False) if isinstance(tm_spec, dict) else tier_models.get("speculative_decoding", False)
         ),

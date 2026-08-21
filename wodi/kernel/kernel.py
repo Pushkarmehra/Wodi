@@ -37,7 +37,7 @@ from wodi.synthesis.synthesizer import Synthesizer
 from wodi.synthesis.tts import TTSEngine
 from wodi.tools.mcp_host import MCPHost
 from wodi.utils.logging import get_logger, setup_logging
-from wodi.utils.ollama_client import OllamaClient
+from wodi.utils.groq_client import GroqClient
 
 log = get_logger(__name__)
 
@@ -64,7 +64,8 @@ class WodiKernel:
         self._running = False
 
         # Core components (initialized in start())
-        self.ollama: OllamaClient | None = None
+        self.llm_client: GroqClient | None = None
+        self.ollama: GroqClient | None = None  # Alias for backward compatibility
         self.planner: Planner | None = None
         self.dispatch: DispatchBus | None = None
         self.critic: Critic | None = None
@@ -103,8 +104,8 @@ class WodiKernel:
         # 1. Open memory and audit log
         self._init_memory()
 
-        # 2. Connect to Ollama
-        await self._init_ollama()
+        # 2. Connect to Groq Cloud LLM
+        await self._init_llm()
 
         # 3. Build the AI pipeline
         self._init_pipeline()
@@ -150,9 +151,9 @@ class WodiKernel:
         if self.audit_log:
             self.audit_log.close()
 
-        # Close Ollama client
-        if self.ollama:
-            await self.ollama.__aexit__(None, None, None)
+        # Close Groq client
+        if self.llm_client:
+            await self.llm_client.__aexit__(None, None, None)
 
         log.info("kernel.stopped")
 
@@ -181,50 +182,40 @@ class WodiKernel:
 
         log.info("kernel.memory_ready")
 
-    async def _init_ollama(self) -> None:
-        self.ollama = OllamaClient(
-            host=self.config.models.ollama_host,
-            timeout=self.config.models.ollama_timeout,
+    async def _init_llm(self) -> None:
+        """Initialize high-speed Groq Cloud client."""
+        self.llm_client = GroqClient(
+            default_model=self.config.models.planner,
+            timeout=self.config.models.timeout,
         )
-        await self.ollama.__aenter__()
+        self.ollama = self.llm_client  # Alias
+        await self.llm_client.__aenter__()
 
-        # Health check with retries
-        for attempt in range(3):
-            if await self.ollama.health_check():
-                log.info("kernel.ollama_connected", host=self.config.models.ollama_host)
-                return
+        is_connected = await self.llm_client.health_check()
+        if is_connected:
+            log.info("kernel.groq_connected", model=self.config.models.planner)
+        else:
             log.warning(
-                "kernel.ollama_unavailable",
-                attempt=attempt + 1,
-                hint="Start Ollama with: ollama serve",
+                "kernel.groq_api_key_missing",
+                hint=(
+                    "Groq API key not set or invalid!\n"
+                    "  1. Get a free API key: https://console.groq.com/keys\n"
+                    "  2. Add your key to .env: GROQ_API_KEY=gsk_..."
+                ),
             )
-            await asyncio.sleep(2)
-
-        log.error(
-            "kernel.ollama_unreachable",
-            hint=(
-                "Ollama is not running!\n"
-                "  1. Install: https://ollama.com\n"
-                "  2. Run: ollama serve\n"
-                "  3. Pull a model: ollama pull qwen2.5:7b"
-            ),
-        )
-        # Don't crash — operate in degraded mode
 
     def _init_pipeline(self) -> None:
         cfg = self.config
-        assert self.ollama
+        assert self.llm_client
 
         self.critic = Critic(
-            client=self.ollama,
+            client=self.llm_client,
             model=cfg.models.critic,
-            # On standard/lite tier: use fast heuristics instead of an extra
-            # LLM call per subtask to avoid compounding latency on CPU-only hardware.
             use_heuristics=(cfg.tier.value in ("lite", "standard")),
         )
 
         self.planner = Planner(
-            client=self.ollama,
+            client=self.llm_client,
             router_model=cfg.models.router,
             planner_model=cfg.models.planner,
             session_id=self.session_id,
@@ -232,14 +223,14 @@ class WodiKernel:
 
         self.dispatch = build_dispatch_bus(
             config=cfg,
-            ollama_client=self.ollama,
+            ollama_client=self.llm_client,
             confirm_callback=self._confirm_callback,
             critic=self.critic,
         )
 
         tone = self.semantic.get().tone if self.semantic else "concise"
         self.synthesizer = Synthesizer(
-            client=self.ollama,
+            client=self.llm_client,
             model=cfg.models.synthesizer,
             tone=tone,
         )
@@ -347,10 +338,9 @@ class WodiKernel:
         """
         t0 = time.perf_counter()
         request_id = str(uuid.uuid4())[:8]
-        log.info("kernel.process_start", request=user_text[:60], id=request_id)
-
-        # --- Context gathering ---
-        screen_context = self._get_screen_ocr_text()
+        # --- Context gathering (Only run heavy CPU OCR when screen is referenced) ---
+        needs_screen = any(w in user_text.lower() for w in ["screen", "display", "window", "see", "look at", "what is on", "what's on"])
+        screen_context = self._get_screen_ocr_text() if needs_screen else ""
         clipboard_context = self._clipboard.get_current() if self._clipboard else ""
         task_history = (
             self.episodic.format_history_for_prompt(n=3) if self.episodic else ""
@@ -392,9 +382,9 @@ class WodiKernel:
 
         state["final_response"] = final_response
 
-        # --- TTS ---
+        # --- TTS (non-blocking background task) ---
         if self.tts and final_response:
-            await self.tts.speak(final_response)
+            asyncio.create_task(self.tts.speak(final_response))
 
         # --- Log to episodic memory ---
         duration_ms = (time.perf_counter() - t0) * 1000
@@ -460,10 +450,6 @@ class WodiKernel:
             res = task.get("result")
 
             if agent == "react_agent" and isinstance(res, str):
-                return res
-
-            # Direct chat response — return as-is, no synthesizer needed
-            if action == "chat" and isinstance(res, str):
                 return res
 
             if isinstance(res, dict):

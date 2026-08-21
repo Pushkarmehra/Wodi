@@ -21,67 +21,145 @@ TOOLS = [
     "take_screenshot",
 ]
 
-# Allowlist of known safe executables.  open_app ONLY launches apps in this list,
-# preventing command injection when the user supplies arbitrary text.
+# Expanded common application aliases
 APP_ALIASES: dict[str, str] = {
     "notepad": "notepad.exe",
     "calculator": "calc.exe",
     "calc": "calc.exe",
+    "brave": "brave.exe",
+    "brave browser": "brave.exe",
     "chrome": "chrome.exe",
+    "google chrome": "chrome.exe",
     "firefox": "firefox.exe",
     "edge": "msedge.exe",
+    "microsoft edge": "msedge.exe",
     "explorer": "explorer.exe",
+    "file explorer": "explorer.exe",
+    "files": "explorer.exe",
     "vscode": "code.exe",
     "code": "code.exe",
+    "visual studio code": "code.exe",
+    "cursor": "cursor.exe",
     "terminal": "wt.exe",
     "windows terminal": "wt.exe",
     "cmd": "cmd.exe",
+    "command prompt": "cmd.exe",
     "powershell": "powershell.exe",
     "paint": "mspaint.exe",
     "word": "winword.exe",
     "excel": "excel.exe",
+    "powerpoint": "powerpnt.exe",
     "notepad++": "notepad++.exe",
     "spotify": "spotify.exe",
     "vlc": "vlc.exe",
     "discord": "discord.exe",
     "slack": "slack.exe",
     "teams": "ms-teams.exe",
-    "zoom": "zoom.exe",
+    "telegram": "telegram.exe",
+    "whatsapp": "whatsapp.exe",
+    "steam": "steam.exe",
     "obs": "obs64.exe",
+    "obsidian": "obsidian.exe",
+    "settings": "ms-settings:",
+    "task manager": "taskmgr.exe",
+    "taskmgr": "taskmgr.exe",
 }
 
 
+def find_windows_app(app_name: str) -> str | None:
+    """Dynamically search Windows Registry and Start Menu for installed apps."""
+    clean_name = app_name.lower().strip()
+    target_exe = APP_ALIASES.get(clean_name, f"{clean_name}.exe")
+
+    # 1. Check Windows Registry App Paths (HKLM & HKCU)
+    try:
+        import winreg
+        for root in (winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER):
+            try:
+                key = winreg.OpenKey(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths")
+                for i in range(winreg.QueryInfoKey(key)[0]):
+                    subkey_name = winreg.EnumKey(key, i)
+                    subkey_lower = subkey_name.lower()
+                    if clean_name == subkey_lower.removesuffix(".exe") or clean_name in subkey_lower:
+                        sub = winreg.OpenKey(key, subkey_name)
+                        val, _ = winreg.QueryValueEx(sub, "")
+                        if val and os.path.exists(val):
+                            return val
+            except Exception:
+                pass
+    except Exception:
+        pass
+
+    # 2. Check Windows Start Menu shortcuts (.lnk)
+    try:
+        import glob
+        search_dirs = [
+            os.environ.get("APPDATA", "") + r"\Microsoft\Windows\Start Menu\Programs",
+            os.environ.get("PROGRAMDATA", "") + r"\Microsoft\Windows\Start Menu\Programs",
+            os.environ.get("LOCALAPPDATA", "") + r"\Programs",
+        ]
+        for base in search_dirs:
+            if not base or not os.path.exists(base):
+                continue
+            for lnk in glob.glob(base + r"\**\*.lnk", recursive=True):
+                lnk_name = os.path.splitext(os.path.basename(lnk))[0].lower()
+                if clean_name in lnk_name or lnk_name in clean_name:
+                    return lnk
+    except Exception:
+        pass
+
+    # 3. Check system PATH via 'where'
+    try:
+        res = subprocess.run(["where", target_exe], capture_output=True, text=True, timeout=2)
+        if res.returncode == 0:
+            lines = [line.strip() for line in res.stdout.splitlines() if line.strip()]
+            if lines:
+                return lines[0]
+    except Exception:
+        pass
+
+    return None
+
+
 def open_app(app_name: str) -> dict:
-    """Open an application by name.
+    """Open an application by name on Windows.
 
     Args:
-        app_name: Name of the application to open (e.g. 'notepad', 'chrome', 'calculator').
+        app_name: Name of the application to open (e.g. 'brave', 'chrome', 'notepad', 'calculator').
     """
-    name_lower = app_name.lower().strip()
-    exe = APP_ALIASES.get(name_lower)
+    clean_name = app_name.lower().strip()
+    if clean_name == "settings" or clean_name.startswith("ms-settings:"):
+        os.startfile("ms-settings:")
+        return {"success": True, "message": "Opened Windows Settings."}
 
-    if exe is None:
-        # Not in the safe allowlist — reject to prevent command injection
-        suggestions = ", ".join(sorted(APP_ALIASES.keys()))
-        return {
-            "success": False,
-            "error": (
-                f"'{app_name}' is not in the allowed application list. "
-                f"Supported: {suggestions}"
-            ),
-        }
+    # 1. Try dynamic locator
+    resolved_path = find_windows_app(clean_name)
+    if resolved_path:
+        try:
+            os.startfile(resolved_path)
+            return {"success": True, "message": f"Opened {app_name}."}
+        except Exception as e:
+            try:
+                subprocess.Popen([resolved_path], shell=False)
+                return {"success": True, "message": f"Opened {app_name}."}
+            except Exception as e2:
+                return {"success": False, "error": f"Failed to launch {resolved_path}: {e2}"}
 
+    # 2. Try alias or direct execution
+    exe = APP_ALIASES.get(clean_name, clean_name)
     try:
-        # shell=False — exe is from the safe allowlist, not raw user input
-        subprocess.Popen([exe], shell=False)
+        os.startfile(exe)
         return {"success": True, "message": f"Opened {app_name} ({exe})."}
-    except FileNotFoundError:
-        return {
-            "success": False,
-            "error": f"{exe} not found. The application may not be installed.",
-        }
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    except Exception:
+        try:
+            subprocess.Popen(f'start "" "{exe}"', shell=True)
+            return {"success": True, "message": f"Opened {app_name}."}
+        except Exception as e:
+            return {
+                "success": False,
+                "error": f"Could not find or open application '{app_name}'. Error: {e}",
+            }
+
 
 
 def close_app(app_name: str) -> dict:
