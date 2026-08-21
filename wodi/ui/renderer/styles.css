@@ -1,0 +1,529 @@
+/* ══════════════════════════════════════════════════════════
+   Wodi — OLED Obsidian Glass + Indigo-Purple Spectrum Theme
+   Evolved from the Nex prototype's Cyber Cyan design.
+
+   Additions over prototype:
+     - Wodi indigo/purple spectrum (vs Nex cyan)
+     - Dual-layer revolving border (primary + inner ring)
+     - Thinking pulse animation on input container
+     - Voice button styling
+     - Improved code typography (Fira Code)
+     - Agent badge pill per message
+   ══════════════════════════════════════════════════════════ */
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ── Design Tokens ──────────────────────────────────────────────────────────── */
+:root {
+  /* Glass */
+  --glass-bg:     linear-gradient(135deg, rgba(10, 10, 20, 0.95), rgba(15, 15, 28, 0.93));
+  --glass-border: rgba(255, 255, 255, 0.10);
+
+  /* Wodi Spectrum — Indigo ↔ Purple ↔ Violet */
+  --primary:       #6366f1;    /* indigo */
+  --primary-light: #818cf8;
+  --secondary:     #a78bfa;    /* purple */
+  --accent:        #c084fc;    /* violet */
+  --glow:          rgba(99, 102, 241, 0.45);
+  --soft:          rgba(99, 102, 241, 0.12);
+  --border-active: rgba(99, 102, 241, 0.40);
+
+  /* Text */
+  --text:           #f1f5f9;
+  --text-secondary: #94a3b8;
+  --placeholder:    #64748b;
+  --muted:          #475569;
+
+  /* Status */
+  --error:      #f87171;
+  --error-glow: rgba(248, 113, 113, 0.30);
+  --success:    #34d399;
+  --warning:    #fbbf24;
+
+  /* Shape */
+  --radius-pill: 30px;
+  --radius-bar:  18px;
+  --font:        "Inter", -apple-system, system-ui, sans-serif;
+  --font-mono:   "Fira Code", "Cascadia Code", monospace;
+  --ease:        cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  font-family: var(--font);
+  font-size: 14px;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ═══════════════════════════════════════════════════
+   APP SHELL — Deep Obsidian Glassmorphism Container
+   ═══════════════════════════════════════════════════ */
+#app {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+
+  background: var(--glass-bg);
+  backdrop-filter: blur(40px) saturate(230%);
+  -webkit-backdrop-filter: blur(40px) saturate(230%);
+
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-pill);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+
+  box-shadow:
+    0 24px 60px -12px rgba(0, 0, 0, 0.80),
+    0 8px 20px -4px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.07) inset;
+
+  transition:
+    border-radius 280ms var(--ease),
+    border-color  220ms var(--ease);
+}
+
+/* Expanded state — corners square off slightly */
+#app.expanded {
+  border-radius: var(--radius-bar);
+}
+
+/* ── Revolving spectrum border beam (Wodi-purple edition) ── */
+#app::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: calc(var(--radius-pill) + 3px);
+  padding: 3px;
+  background: conic-gradient(
+    from var(--angle),
+    transparent 0%,
+    transparent 65%,
+    #4f46e5 78%,
+    #6366f1 87%,
+    #818cf8 93%,
+    #a78bfa 97%,
+    #c084fc 99%,
+    transparent 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms var(--ease);
+  z-index: 10;
+}
+
+#app.expanded::after {
+  border-radius: calc(var(--radius-bar) + 3px);
+}
+
+@keyframes revolve {
+  to { --angle: 360deg; }
+}
+
+#app:focus-within::after {
+  opacity: 1;
+  animation: revolve 2.2s linear infinite;
+}
+
+#app:focus-within {
+  border-color: var(--border-active);
+}
+
+/* ═══════════════════════════════════════════════════
+   RESPONSE PANEL (Expands UPWARDS above input bar)
+   ═══════════════════════════════════════════════════ */
+#response-panel {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 8, 18, 0.60);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(99, 102, 241, 0.28) transparent;
+}
+
+#response-panel.hidden {
+  display: none;
+}
+
+#response-panel::-webkit-scrollbar        { width: 4px; }
+#response-panel::-webkit-scrollbar-track  { background: transparent; }
+#response-panel::-webkit-scrollbar-thumb  {
+  background: rgba(99, 102, 241, 0.32);
+  border-radius: 4px;
+}
+#response-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.55);
+}
+
+#messages {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px 6px;
+}
+
+/* ── Message Bubbles ── */
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.65;
+  word-break: break-word;
+  animation: msgIn 200ms var(--ease) both;
+  border: 1px solid transparent;
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* User bubble */
+.message-user {
+  background: var(--soft);
+  border-color: rgba(99, 102, 241, 0.28);
+  align-self: flex-end;
+  max-width: 86%;
+  color: var(--text);
+}
+
+/* Agent/AI bubble */
+.message-agent {
+  background: rgba(18, 20, 36, 0.75);
+  border-color: rgba(255, 255, 255, 0.09);
+  align-self: flex-start;
+  max-width: 96%;
+  color: var(--text);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.40);
+}
+
+/* Tool call / log status badge */
+.message-status-badge {
+  background: rgba(99, 102, 241, 0.08);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--primary-light);
+}
+
+.message-status-badge .badge-icon {
+  margin-right: 4px;
+  font-size: 11px;
+}
+
+/* Error bubble */
+.message-error {
+  background: rgba(248, 113, 113, 0.09);
+  border-color: rgba(248, 113, 113, 0.24);
+  color: #fca5a5;
+  align-self: flex-start;
+  max-width: 95%;
+}
+
+/* Agent label pill */
+.message-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.message-user  .message-label { color: var(--primary-light); }
+.message-agent .message-label { color: var(--secondary); }
+.message-error .message-label { color: var(--error); }
+
+/* ── Rich Markdown Typography ── */
+.message-body h1,
+.message-body h2,
+.message-body h3 {
+  color: var(--primary-light);
+  margin-top: 8px;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.message-body h1 { font-size: 16px; }
+.message-body h2 { font-size: 15px; }
+.message-body h3 { font-size: 14px; }
+
+.message-body strong { color: #fff; font-weight: 600; }
+.message-body em     { color: var(--secondary); font-style: italic; }
+
+.message-body a {
+  color: var(--primary-light);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.message-body a:hover { color: #fff; }
+
+.message-body ul,
+.message-body ol {
+  padding-left: 18px;
+  margin: 6px 0;
+}
+.message-body li { margin-bottom: 4px; }
+
+.message-body code {
+  background: rgba(0, 0, 0, 0.42);
+  color: var(--primary-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+}
+
+.message-body pre {
+  background: #060810;
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  padding: 10px 14px;
+  border-radius: 9px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.message-body pre code {
+  background: transparent;
+  padding: 0;
+  color: #e2e8f0;
+}
+
+.message-body .spacer { height: 8px; }
+
+/* Horizontal rule */
+.message-body hr {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+  margin: 10px 0;
+}
+
+/* ═══════════════════════════════════════════════════
+   COMMAND BAR — Input + Controls (bottom anchor)
+   ═══════════════════════════════════════════════════ */
+#command-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 62px;
+  padding: 0 14px;
+  flex-shrink: 0;
+}
+
+/* Separator above bar when expanded */
+#app.expanded #command-bar {
+  border-top: 1px solid rgba(99, 102, 241, 0.20);
+}
+
+/* ── Logo Badge ── */
+#logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: var(--soft);
+  border: 1px solid rgba(99, 102, 241, 0.28);
+  border-radius: 10px;
+  flex-shrink: 0;
+  overflow: hidden;
+  transition: all 180ms var(--ease);
+  cursor: default;
+}
+
+#logo:hover {
+  background: rgba(99, 102, 241, 0.22);
+  transform: scale(1.06) rotate(-4deg);
+  border-color: rgba(99, 102, 241, 0.50);
+  box-shadow: 0 0 14px var(--glow);
+}
+
+#logo-svg, #logo-img {
+  width: 22px;
+  height: 22px;
+}
+
+/* ── Textarea Input ── */
+#prompt-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14.5px;
+  font-weight: 500;
+  line-height: 1.4;
+  resize: none;
+  max-height: 52px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  caret-color: var(--primary-light);
+}
+
+#prompt-input::-webkit-scrollbar { display: none; }
+#prompt-input::placeholder {
+  color: var(--placeholder);
+  font-weight: 400;
+}
+#prompt-input:focus,
+#prompt-input:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ── Actions Container ── */
+#actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* ── Status Dot ── */
+#status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  transition: background 250ms, box-shadow 250ms;
+}
+
+.dot-idle {
+  background: var(--muted);
+  opacity: 0.55;
+}
+
+.dot-active {
+  background: var(--primary);
+  box-shadow: 0 0 10px var(--glow);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.dot-error {
+  background: var(--error);
+  box-shadow: 0 0 10px var(--error-glow);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.88); }
+}
+
+/* ── Shared Button Base ── */
+#btn-send,
+#btn-close,
+#btn-voice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  outline: none !important;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 160ms var(--ease);
+  flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Glossy top-light on all buttons */
+#btn-send::before,
+#btn-close::before,
+#btn-voice::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), transparent 60%);
+  pointer-events: none;
+}
+
+/* ── Send Button — Indigo-Purple gradient ── */
+#btn-send {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.45);
+}
+
+#btn-send:hover {
+  background: linear-gradient(135deg, #4f46e5, #7c3aed);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.58);
+  transform: translateY(-1px) scale(1.04);
+}
+
+#btn-send:active  { transform: scale(0.93); }
+#btn-send:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ── Voice Button — subtle ghost ── */
+#btn-voice {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  opacity: 0.6;
+}
+
+#btn-voice:hover {
+  opacity: 1;
+  background: rgba(99, 102, 241, 0.14);
+  color: var(--primary-light);
+  border-color: rgba(99, 102, 241, 0.30);
+}
+
+/* ── Close Button — red-on-hover ── */
+#btn-close {
+  width: 28px;
+  height: 28px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+#btn-close:hover {
+  background: rgba(248, 113, 113, 0.14);
+  color: var(--error);
+  border-color: rgba(248, 113, 113, 0.28);
+  transform: scale(1.05);
+}
+
+#btn-close:active { transform: scale(0.90); }
+
+/* Focus ring suppression */
+#btn-send:focus-visible,
+#btn-close:focus-visible,
+#btn-voice:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+}

@@ -130,20 +130,29 @@ class DispatchBus:
         context = {
             "session_id": state["session_id"],
             "screen_context": state.get("screen_context", ""),
+            "user_request": state.get("user_request", ""),
             "agent_results": state.get("agent_results", {}),
         }
+
+        # LLM-based agents (react_agent, vision_agent) need a much longer timeout
+        # than fast tool agents (system_agent, desktop_agent).  Local Ollama inference
+        # on consumer hardware can take 60–120 s for a 7B model, so we give it 180 s
+        # and keep a short 45 s timeout for pure tool dispatches.
+        LLM_AGENTS = {"react_agent", "vision_agent", "coding_agent", "browser_agent"}
+        timeout_seconds = 180.0 if agent_name in LLM_AGENTS else 45.0
 
         log.info(
             "dispatch.task_start",
             task_id=task["id"],
             agent=agent_name,
             action=task["action"],
+            timeout_s=timeout_seconds,
         )
 
         result = await agent.run(
             action=task["action"],
             params=task["params"],
-            timeout_seconds=30,
+            timeout_seconds=timeout_seconds,
             context=context,
             critic=self._critic,
             goal_description=task["description"],

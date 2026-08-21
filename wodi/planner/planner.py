@@ -91,6 +91,27 @@ class Planner:
             confidence=confidence,
         )
 
+        if agent == "chat_agent":
+            # Direct conversational response — no tools, no decomposition
+            # Use the small model directly for speed
+            state["is_simple"] = True
+            state["intent"] = user_request
+            state["subtasks"] = [
+                SubTask(
+                    id="t1",
+                    agent="system_agent",
+                    action="chat",
+                    params={"message": user_request},
+                    depends_on=[],
+                    description=user_request,
+                    status="pending",
+                    result=None,
+                    error=None,
+                    retries=0,
+                )
+            ]
+            return state
+
         if agent == "react_agent":
             # ReAct agent handles complex tasks autonomously via tool calling
             state["is_simple"] = False
@@ -136,25 +157,49 @@ class Planner:
 
     async def _route(self, user_request: str) -> dict:
         """Fast intent classification via rules or small model."""
+        import re
         req = user_request.lower().strip()
 
         # Fast-path heuristics (< 1ms)
-        if any(req.startswith(p) for p in ["open ", "launch ", "start "]):
-            return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "open_app"}
-        if any(req.startswith(p) for p in ["close ", "quit ", "exit "]):
-            return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "close_app"}
+        # Use word-boundary patterns so "close the deal" or "open sesame" don't
+        # accidentally route to the desktop agent.
+        _open_re = re.compile(r'^(open|launch|start)\s+\S')
+        _close_re = re.compile(r'^(close|quit|exit)\s+\S')
+
+        if _open_re.match(req):
+            # Only fast-path if we can actually extract an app name
+            params = self._extract_simple_params(user_request, "open_app")
+            if params.get("app_name"):
+                return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "open_app"}
+        if _close_re.match(req):
+            params = self._extract_simple_params(user_request, "close_app")
+            if params.get("app_name"):
+                return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "close_app"}
         if any(k in req for k in ["what time", "what's the time", "current time", "what date", "what's the date", "today's date"]):
             return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_time_date"}
-        if any(k in req for k in ["cpu", "ram", "system stats", "memory usage"]):
+        if any(k in req for k in ["cpu usage", "ram usage", "system stats", "memory usage", "how much cpu", "how much ram"]):
             return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_system_stats"}
-        if any(k in req for k in ["battery", "power level"]):
+        if any(k in req for k in ["battery", "power level", "how much battery"]):
             return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_battery"}
-        if any(k in req for k in ["clipboard", "show clipboard"]):
+        if any(k in req for k in ["clipboard", "show clipboard", "what's in my clipboard"]):
             return {"agent": "system_agent", "confidence": 1.0, "direct_action": "get_clipboard"}
-        if any(k in req for k in ["take screenshot", "screenshot"]):
+        if any(k in req for k in ["take screenshot", "take a screenshot", "screenshot"]):
             return {"agent": "desktop_agent", "confidence": 1.0, "direct_action": "take_screenshot"}
-        if any(req.startswith(p) for p in ["search ", "google ", "look up "]):
+        if any(req.startswith(p) for p in ["search for ", "search ", "google ", "look up "]):
             return {"agent": "browser_agent", "confidence": 1.0, "direct_action": "search_web"}
+
+        # Fast-path: short conversational messages go directly to chat_agent
+        # (no tools needed — avoids expensive tool-calling loop on 1.5b model)
+        _CHAT_GREETINGS = {
+            "hi", "hello", "hey", "yo", "sup", "howdy",
+            "hi wodi", "hello wodi", "hey wodi",
+            "thanks", "thank you", "ok", "okay", "cool", "great",
+            "bye", "goodbye", "stop", "quit",
+        }
+        if req in _CHAT_GREETINGS or (len(req.split()) <= 6 and not any(
+            c in req for c in ["open", "close", "run", "search", "find", "make", "create", "delete", "download"]
+        )):
+            return {"agent": "chat_agent", "confidence": 1.0, "direct_action": "chat"}
 
         try:
             messages = [
@@ -239,30 +284,48 @@ class Planner:
         return state
 
     def _extract_simple_params(self, request: str, action: str) -> dict:
-        """Extract obvious parameters from simple requests."""
+        """Extract obvious parameters from simple requests.
+
+        We operate on the *original* request (not lowercased) so that app
+        names preserve their natural capitalisation (e.g. 'Notepad', 'Chrome').
+        """
         request_lower = request.lower()
         params: dict[str, Any] = {}
+        # Articles to strip when they appear immediately after the verb
+        _ARTICLES = {"the", "a", "an", "my"}
 
         if action == "open_app":
-            # Try to extract the app name from the request
             for kw in ["open ", "launch ", "start "]:
                 if kw in request_lower:
-                    app = request_lower.split(kw)[-1].strip().split()[0]
-                    params["app_name"] = app
+                    # Find position in original string to preserve case
+                    idx = request_lower.find(kw) + len(kw)
+                    words = request[idx:].strip().split()
+                    # Skip leading articles ("open the notepad" → "notepad")
+                    while words and words[0].lower() in _ARTICLES:
+                        words = words[1:]
+                    app = words[0] if words else ""
+                    if app:
+                        params["app_name"] = app.lower()  # normalise for APP_ALIASES lookup
                     break
 
         elif action == "close_app":
             for kw in ["close ", "quit ", "exit "]:
                 if kw in request_lower:
-                    app = request_lower.split(kw)[-1].strip().split()[0]
-                    params["app_name"] = app
+                    idx = request_lower.find(kw) + len(kw)
+                    words = request[idx:].strip().split()
+                    while words and words[0].lower() in _ARTICLES:
+                        words = words[1:]
+                    app = words[0] if words else ""
+                    if app:
+                        params["app_name"] = app.lower()  # normalise for APP_ALIASES lookup
                     break
 
         elif action == "search_web":
             for kw in ["search for ", "search ", "google ", "look up "]:
                 if kw in request_lower:
-                    query = request_lower.split(kw)[-1].strip()
-                    params["query"] = query
+                    idx = request_lower.find(kw) + len(kw)
+                    # Preserve original capitalisation for the search query
+                    params["query"] = request[idx:].strip()
                     break
 
         return params

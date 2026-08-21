@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nex</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Response Panel (Extends UPWARDS above the input bar) ── -->
+    <div id="response-panel" class="hidden">
+      <div id="messages"></div>
+    </div>
+
+    <!-- ── Command Input Bar (Stays DOWNWARDS at bottom) ── -->
+    <div id="command-bar">
+      <!-- Nex Brand Logo Badge -->
+      <div id="logo" title="Nex AI">
+        <img src="assets/logo.png" id="logo-img" alt="Nex AI Logo" />
+      </div>
+
+      <!-- Textarea Input -->
+      <textarea
+        id="prompt-input"
+        placeholder="Ask Nex anything..."
+        rows="1"
+        autofocus
+        spellcheck="false"
+      ></textarea>
+
+      <!-- Actions Area -->
+      <div id="actions">
+        <!-- Status Dot -->
+        <span id="status-dot" class="dot-idle" title="Status: Ready"></span>
+
+        <!-- Send Button -->
+        <button id="btn-send" title="Send (Enter)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+
+        <!-- Close Button -->
+        <button id="btn-close" title="Hide Window (Esc / Ctrl+/)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

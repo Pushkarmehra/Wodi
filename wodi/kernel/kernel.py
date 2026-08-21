@@ -218,7 +218,9 @@ class WodiKernel:
         self.critic = Critic(
             client=self.ollama,
             model=cfg.models.critic,
-            use_heuristics=(cfg.tier.value == "lite"),
+            # On standard/lite tier: use fast heuristics instead of an extra
+            # LLM call per subtask to avoid compounding latency on CPU-only hardware.
+            use_heuristics=(cfg.tier.value in ("lite", "standard")),
         )
 
         self.planner = Planner(
@@ -431,8 +433,10 @@ class WodiKernel:
         if not self._running or self._stt is None:
             return
 
-        # Get screen OCR for prompt biasing
-        initial_prompt = self._get_screen_ocr_text()[:200] if self.config.perception.stt_use_screen_prompt else None
+        # Skip screen OCR for initial_prompt on CPU — OCR (easyocr) on CPU
+        # takes 3–5 seconds which blocks every transcription. The Whisper
+        # base model handles English well without a prompt bias.
+        initial_prompt: str | None = None
 
         # Run STT in background
         async def _transcribe() -> None:
@@ -456,6 +460,10 @@ class WodiKernel:
             res = task.get("result")
 
             if agent == "react_agent" and isinstance(res, str):
+                return res
+
+            # Direct chat response — return as-is, no synthesizer needed
+            if action == "chat" and isinstance(res, str):
                 return res
 
             if isinstance(res, dict):
@@ -489,10 +497,11 @@ class WodiKernel:
         try:
             if self._screen:
                 capture = self._screen.capture_now()
-                if capture and self._stt:
-                    from wodi.perception.ocr import OCREngine
-                    ocr = OCREngine(engine=self.config.perception.ocr_engine)
+                if capture:
+                    # Lazily initialise the OCR engine once and cache it on self
                     if not hasattr(self, "_ocr_engine"):
+                        from wodi.perception.ocr import OCREngine
+                        ocr = OCREngine(engine=self.config.perception.ocr_engine)
                         ocr.load()
                         self._ocr_engine = ocr
                     result = self._ocr_engine.read_image(capture.image)
@@ -519,6 +528,7 @@ class WodiKernel:
 async def start_kernel_only(config_path: str | None = None) -> None:
     """Start the Wodi kernel in headless mode (no GUI)."""
     from rich.console import Console
+
     console = Console()
     console.print("[bold cyan]Wodi Kernel[/bold cyan] starting in headless mode...")
 
@@ -531,7 +541,9 @@ async def start_kernel_only(config_path: str | None = None) -> None:
     try:
         while True:
             try:
-                text = await asyncio.get_event_loop().run_in_executor(None, input, "You: ")
+                # Use get_running_loop() — get_event_loop() is deprecated in 3.10+
+                loop = asyncio.get_running_loop()
+                text = await loop.run_in_executor(None, input, "You: ")
                 if text.strip():
                     response = await kernel.process_request(text.strip())
                     console.print(f"[bold]Wodi:[/bold] {response}\n")

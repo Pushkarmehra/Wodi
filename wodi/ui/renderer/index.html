@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wodi</title>
+  <meta name="description" content="Wodi — Local-First AI Desktop Assistant" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div id="app">
+
+    <!-- ── Response Panel (extends UPWARDS above the input bar) ── -->
+    <div id="response-panel" class="hidden">
+      <div id="messages"></div>
+    </div>
+
+    <!-- ── Command Input Bar (anchored at BOTTOM) ── -->
+    <div id="command-bar">
+
+      <!-- Wodi Brand Logo Badge -->
+      <div id="logo" title="Wodi AI">
+        <svg id="logo-svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="10" fill="rgba(99,102,241,0.25)" stroke="#6366f1" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="5" fill="#a78bfa" opacity="0.9"/>
+          <circle cx="12" cy="12" r="2" fill="#ffffff"/>
+        </svg>
+      </div>
+
+      <!-- Textarea Input -->
+      <textarea
+        id="prompt-input"
+        placeholder="Ask Wodi anything…  Ctrl+Alt+Space"
+        rows="1"
+        autofocus
+        spellcheck="false"
+      ></textarea>
+
+      <!-- Actions Area -->
+      <div id="actions">
+        <!-- Status Dot -->
+        <span id="status-dot" class="dot-idle" title="Status: Ready"></span>
+
+        <!-- Voice Button -->
+        <button id="btn-voice" title="Voice Input (coming soon)" tabindex="-1">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" y1="19" x2="12" y2="23"/>
+            <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+
+        <!-- Send Button -->
+        <button id="btn-send" title="Send (Enter)">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+
+        <!-- Close Button -->
+        <button id="btn-close" title="Hide Wodi (Esc)">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

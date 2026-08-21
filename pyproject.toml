@@ -59,7 +59,25 @@ ui = [
 llm = [
     "openai>=1.40.0",
     "langgraph>=0.2.0",
-    "langchain-core>=0.2.0",
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+]
+# pip install -e ".[cloud]"  — Gemini + Groq cloud LLM providers
+cloud = [
+    "langchain-google-genai>=2.0.0",
+    "langchain-groq>=0.2.0",
+    "langchain-ollama>=0.3.0",
+    "python-dotenv>=1.0.1",
+]
+# pip install -e ".[web]"  — FastAPI + SSE backend + WebEngine
+web = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.1",
+    "sse-starlette>=2.1.0",
+]
+# pip install -e ".[tavily]"  — Tavily web search
+tavily = [
+    "langchain-tavily>=0.1.0",
 ]
 # pip install -e ".[browser]"
 browser = [
@@ -81,7 +99,7 @@ tts = [
 ]
 # pip install -e ".[all]"  — everything
 all = [
-    "wodi[audio,desktop,vision,ui,llm,browser,memory,ipc,tts]",
+    "wodi[audio,desktop,vision,ui,llm,cloud,web,tavily,browser,memory,ipc,tts]",
 ]
 dev = [
     "pytest>=8.3.0",
@@ -97,6 +115,7 @@ dev = [
 wodi = "wodi.__main__:main"
 wodi-kernel = "wodi.kernel.kernel:cli_start"
 wodi-eval = "wodi.observability.eval.harness:cli_run"
+wodi-serve = "wodi.ipc.fastapi_server:serve"
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -27,6 +27,7 @@ class SystemAgent(BaseAgent):
         "get_battery",
         "get_network_info",
         "clarify",
+        "chat",
     }
 
     def __init__(self, confirm_callback: Any | None = None) -> None:
@@ -43,6 +44,7 @@ class SystemAgent(BaseAgent):
             "get_battery": self._get_battery,
             "get_network_info": self._get_network_info,
             "clarify": self._clarify,
+            "chat": self._chat,
         }
         handler = handlers.get(action)
         if not handler:
@@ -145,3 +147,32 @@ class SystemAgent(BaseAgent):
     async def _clarify(self, params: dict, context: dict) -> AgentResult:
         return AgentResult(success=True, output={"clarification_needed": True,
                                                   "message": params.get("message", "Please clarify.")})
+
+    async def _chat(self, params: dict, context: dict) -> AgentResult:
+        """Fast conversational response — no tools, no heavy planning."""
+        msg = params.get("message", "").lower().strip()
+        # Instant canned responses for the most common greetings
+        _CANNED: dict[str, str] = {
+            "hi": "Hey! How can I help you?",
+            "hello": "Hello! What can I do for you?",
+            "hey": "Hey there! What do you need?",
+            "hi wodi": "Hey! How can I help you?",
+            "hello wodi": "Hello! What can I do for you?",
+            "hey wodi": "Hey there! What do you need?",
+            "yo": "Yo! What's up?",
+            "sup": "Not much! What do you need?",
+            "howdy": "Howdy! How can I help?",
+            "thanks": "You're welcome!",
+            "thank you": "You're welcome! Let me know if you need anything else.",
+            "ok": "Got it!",
+            "okay": "Got it!",
+            "cool": "Cool!",
+            "great": "Great! Let me know if you need anything.",
+            "bye": "Goodbye! Have a great day!",
+            "goodbye": "Goodbye! Have a great day!",
+        }
+        canned = _CANNED.get(msg)
+        if canned:
+            return AgentResult(success=True, output=canned)
+        # Short unknown query — return a generic helpful response
+        return AgentResult(success=True, output="I'm here to help! You can ask me to open apps, check system stats, take screenshots, search the web, and more.")

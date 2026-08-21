@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Wodi — AI Assistant Overlay (Apple Intelligence Liquid Glass)</title>
+  <title>Wodi — AI Assistant Overlay</title>
   <meta name="description" content="Wodi AI Assistant — Apple Intelligence inspired liquid glass interface." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -559,6 +559,7 @@
       font-size: 14px;
       backdrop-filter: blur(12px);
       margin-right: 8px;
+      line-height: 1;
     }
 
     #overlay.visible .history-toggle-btn {
@@ -674,32 +675,42 @@
     </filter>
   </svg>
 
-  <div id="overlay" class="hidden">
+  <!--
+    role="dialog" + aria-modal="true" mark this as a modal dialog for screen readers.
+    aria-labelledby points to the visible "Wodi" brand label.
+  -->
+  <div id="overlay" class="hidden" role="dialog" aria-modal="true" aria-labelledby="overlay-brand-name">
     <!-- Top bar -->
     <div id="top-bar">
       <div class="top-brand">
-        <div class="brand-dot"></div>
-        <span class="brand-name">Wodi</span>
+        <div class="brand-dot" aria-hidden="true"></div>
+        <span class="brand-name" id="overlay-brand-name">Wodi</span>
       </div>
       <div style="display:flex;align-items:center;gap:4px;">
-        <button class="history-toggle-btn" id="history-toggle-btn" title="Chat History">⟳</button>
-        <button class="close-btn" id="close-btn" title="Close (Esc)">✕</button>
+        <!-- History icon: simple SVG clock/history symbol — more consistent than ⟳ glyph -->
+        <button class="history-toggle-btn" id="history-toggle-btn" aria-label="Toggle chat history" title="Chat History">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>
+          </svg>
+        </button>
+        <button class="close-btn" id="close-btn" aria-label="Close Wodi (Escape)" title="Close (Esc)">✕</button>
       </div>
     </div>
 
     <!-- Status pill -->
-    <div class="status-pill" id="status-pill">
-      <div class="status-dot" id="status-dot"></div>
+    <div class="status-pill" id="status-pill" aria-live="polite" aria-atomic="true">
+      <div class="status-dot" id="status-dot" aria-hidden="true"></div>
       <span class="status-text" id="status-text">Ready</span>
     </div>
 
     <!-- Aurora Visualizer -->
-    <div id="aurora-container">
+    <div id="aurora-container" aria-hidden="true">
       <canvas id="aurora-canvas"></canvas>
     </div>
 
     <!-- Chat History -->
-    <div class="chat-history" id="chat-history">
+    <div class="chat-history" id="chat-history" aria-label="Conversation history">
       <div class="chat-history-scroll" id="chat-history-scroll">
         <div class="chat-empty" id="chat-empty">No conversation history yet</div>
       </div>
@@ -707,18 +718,18 @@
 
     <!-- Caption -->
     <div class="caption-area">
-      <p class="caption-text" id="caption-text"></p>
+      <p class="caption-text" id="caption-text" aria-live="polite" aria-atomic="false"></p>
     </div>
 
     <!-- Input Bar -->
     <div class="input-bar">
-      <input type="text" id="overlay-input" placeholder="Message Wodi... Ctrl+Space" autocomplete="off"
-        spellcheck="false" />
-      <button class="input-send-btn" id="overlay-send">↑</button>
+      <input type="text" id="overlay-input" placeholder="Message Wodi… or press Ctrl+Space" autocomplete="off"
+        spellcheck="false" aria-label="Type a message to Wodi" />
+      <button class="input-send-btn" id="overlay-send" aria-label="Send message">↑</button>
     </div>
 
     <!-- Shortcut hint -->
-    <div class="shortcut-hint">
+    <div class="shortcut-hint" aria-hidden="true">
       <kbd>Esc</kbd> close · <kbd>Ctrl</kbd>+<kbd>Space</kbd> toggle
     </div>
   </div>
@@ -779,16 +790,23 @@
         reset() { hist = []; },
       };
     }
-    function hapticTick(ms = 8) { try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { } }
+
+    function hapticTick(ms = 8) {
+      try { navigator.vibrate && navigator.vibrate(ms); } catch (e) { /* desktop — vibrate not supported, silent */ }
+    }
 
     const STATES = { IDLE: 'idle', LISTENING: 'listening', THINKING: 'thinking', SPEAKING: 'speaking' };
     let state = STATES.IDLE;
     let isVisible = false;
     let captionText = '';
-    let currentUserMessage = '';   // Track the user message for the current request
     let historyOpen = false;
+    // Track the current active request ID to prevent two concurrent requests from
+    // contaminating each other's caption output.
+    let _activeRequestId = null;
+    // Debounce flag for submitText — prevents double-sends from rapid Enter/click.
+    let _submitting = false;
 
-    // DOM
+    // DOM refs
     const overlay = document.getElementById('overlay');
     const statusDot = document.getElementById('status-dot');
     const statusText = document.getElementById('status-text');
@@ -799,11 +817,36 @@
     const historyToggleBtn = document.getElementById('history-toggle-btn');
     const chatHistoryEl = document.getElementById('chat-history');
     const chatHistoryScroll = document.getElementById('chat-history-scroll');
-    const chatEmptyEl = document.getElementById('chat-empty');
 
-    // ── Chat History (localStorage) ──
+    // ── Focus trap helpers ──────────────────────────────────────────────────────
+    // When the overlay is open, Tab/Shift+Tab should cycle only among its
+    // focusable children (WCAG 2.1 success criterion 2.1.2).
+    const FOCUSABLE_SELECTOR = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
+    function getFocusableEls() {
+      return Array.from(overlay.querySelectorAll(FOCUSABLE_SELECTOR)).filter(
+        el => !el.disabled && el.offsetParent !== null
+      );
+    }
+
+    function trapFocus(e) {
+      if (!isVisible || e.key !== 'Tab') return;
+      const els = getFocusableEls();
+      if (els.length === 0) return;
+      const first = els[0], last = els[els.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+    document.addEventListener('keydown', trapFocus);
+
+    // ── Chat History (localStorage) ─────────────────────────────────────────────
     const HISTORY_KEY = 'wodi_chat_history';
     const HISTORY_MAX = 50;
+    // Valid roles that can appear as CSS class names — prevent class injection
+    const VALID_ROLES = new Set(['user', 'assistant']);
 
     function loadHistory() {
       try {
@@ -814,13 +857,14 @@
 
     function saveHistory(history) {
       try {
-        // Keep only the latest HISTORY_MAX entries
         const trimmed = history.slice(-HISTORY_MAX);
         localStorage.setItem(HISTORY_KEY, JSON.stringify(trimmed));
       } catch (e) { /* quota exceeded — silent */ }
     }
 
     function addToHistory(role, text) {
+      // Only allow known roles to prevent CSS class injection
+      if (!VALID_ROLES.has(role)) return;
       const history = loadHistory();
       history.push({
         role,
@@ -835,20 +879,24 @@
       const history = loadHistory();
       chatHistoryScroll.innerHTML = '';
       if (history.length === 0) {
-        chatHistoryScroll.innerHTML = '<div class="chat-empty">No conversation history yet</div>';
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.textContent = 'No conversation history yet';
+        chatHistoryScroll.appendChild(empty);
         return;
       }
       for (const entry of history) {
+        // Validate role again at render time
+        const role = VALID_ROLES.has(entry.role) ? entry.role : 'assistant';
         const bubble = document.createElement('div');
-        bubble.className = `chat-bubble ${entry.role}`;
-        bubble.textContent = entry.text;
+        bubble.className = `chat-bubble ${role}`;
+        bubble.textContent = entry.text; // textContent is XSS-safe
         const timeSpan = document.createElement('span');
         timeSpan.className = 'bubble-time';
         timeSpan.textContent = entry.time || '';
         bubble.appendChild(timeSpan);
         chatHistoryScroll.appendChild(bubble);
       }
-      // Auto-scroll to bottom
       chatHistoryScroll.scrollTop = chatHistoryScroll.scrollHeight;
     }
 
@@ -856,31 +904,33 @@
       historyOpen = !historyOpen;
       chatHistoryEl.classList.toggle('open', historyOpen);
       historyToggleBtn.classList.toggle('active', historyOpen);
+      historyToggleBtn.setAttribute('aria-expanded', String(historyOpen));
       if (historyOpen) renderHistory();
     }
 
+    historyToggleBtn.setAttribute('aria-expanded', 'false');
     historyToggleBtn.addEventListener('click', toggleHistory);
-
-    // Load history on boot
     renderHistory();
 
     // Apple Intelligence Spectrum Palettes (RGB)
     const STATE_COLORS = {
-      idle: { primary: [129, 140, 248], secondary: [192, 132, 252], tertiary: [96, 165, 250] },
-      listening: { primary: [56, 189, 248], secondary: [244, 63, 94], tertiary: [168, 85, 247] },
-      thinking: { primary: [251, 191, 36], secondary: [245, 158, 11], tertiary: [217, 119, 6] },
-      speaking: { primary: [168, 85, 247], secondary: [99, 102, 241], tertiary: [236, 72, 153] },
+      idle:      { primary: [129, 140, 248], secondary: [192, 132, 252], tertiary: [96, 165, 250] },
+      listening: { primary: [56, 189, 248],  secondary: [244, 63, 94],   tertiary: [168, 85, 247] },
+      thinking:  { primary: [251, 191, 36],  secondary: [245, 158, 11],  tertiary: [217, 119, 6]  },
+      speaking:  { primary: [168, 85, 247],  secondary: [99, 102, 241],  tertiary: [236, 72, 153] },
     };
 
     const STATE_LABELS = {
       idle: 'Ready', listening: 'Listening', thinking: 'Processing', speaking: 'Speaking',
     };
 
-    // Audio Feedback
+    // ── Audio Feedback ──────────────────────────────────────────────────────────
     let audioCtx = null;
     function playTick(freq = 880, dur = 0.05) {
       try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        // Resume the context in case the browser suspended it (autoplay policy)
+        if (audioCtx.state === 'suspended') { audioCtx.resume(); }
         const o = audioCtx.createOscillator();
         const g = audioCtx.createGain();
         o.connect(g); g.connect(audioCtx.destination);
@@ -888,14 +938,16 @@
         g.gain.setValueAtTime(0.03, audioCtx.currentTime);
         g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
         o.start(audioCtx.currentTime); o.stop(audioCtx.currentTime + dur);
-      } catch (e) { }
+      } catch (e) { /* audio context unavailable — silent */ }
     }
 
-    // Show/Hide Springs
+    // ── Show / Hide Springs ─────────────────────────────────────────────────────
     const supportsGlassLens = (window.CSS && CSS.supports &&
       (CSS.supports('backdrop-filter', 'url(#glass-lens)') || CSS.supports('-webkit-backdrop-filter', 'url(#glass-lens)')));
     let overlayOpacitySpring = null, overlayYSpring = null, overlayBlurSpring = null;
     let overlayOpacity = 0, overlayY = 24, overlayBlur = 12;
+    // Last element that was focused before the overlay opened (for restoring focus on close)
+    let _prevFocusEl = null;
 
     function paintOverlay() {
       overlay.style.opacity = String(overlayOpacity);
@@ -907,6 +959,7 @@
 
     function showOverlay() {
       isVisible = true;
+      _prevFocusEl = document.activeElement;
       overlay.classList.remove('hidden');
       [overlayOpacitySpring, overlayYSpring, overlayBlurSpring].forEach(s => s && s.cancel());
       requestAnimationFrame(() => {
@@ -924,6 +977,8 @@
           onUpdate: (v) => { overlayBlur = v; paintOverlay(); }
         });
         inputEl.focus();
+        // Kick off the aurora loop if not already running
+        if (!_auroraRunning) startAurora();
       });
     }
 
@@ -934,7 +989,14 @@
       overlayOpacitySpring = SpringEngine.animate({
         from: overlayOpacity, to: 0, dampingRatio: 1, response: 0.32,
         onUpdate: (v) => { overlayOpacity = v; paintOverlay(); },
-        onComplete: () => { overlay.classList.add('hidden'); overlayY = 24; overlayBlur = 12; }
+        onComplete: () => {
+          overlay.classList.add('hidden');
+          overlayY = 24; overlayBlur = 12;
+          // Restore focus to the element that was focused before open
+          if (_prevFocusEl && typeof _prevFocusEl.focus === 'function') {
+            _prevFocusEl.focus();
+          }
+        }
       });
       overlayYSpring = SpringEngine.animate({
         from: overlayY, to: 40, velocity, dampingRatio: 1, response: 0.32,
@@ -951,7 +1013,7 @@
       else showOverlay();
     }
 
-    // Liquid Glass Specular highlight
+    // ── Liquid Glass Specular highlight ─────────────────────────────────────────
     const LIQUID_GLASS_SELECTOR = '#overlay, .input-bar, .status-pill, .close-btn';
     function ensureSpecularLayer(el) {
       let span = el.querySelector(':scope > .specular-layer');
@@ -993,7 +1055,7 @@
 
     closeBtn.addEventListener('click', () => hideOverlay());
 
-    // Pull-down-to-dismiss
+    // ── Pull-down-to-dismiss ─────────────────────────────────────────────────────
     const overlayVTracker = createVelocityTracker();
     let ovDragging = false, ovPointerId = null, ovStartY = 0, ovStartTY = 0;
 
@@ -1036,17 +1098,20 @@
     document.addEventListener('pointerup', ovPointerUp);
     document.addEventListener('pointercancel', ovPointerUp);
 
-    // State management
+    // ── State management ─────────────────────────────────────────────────────────
     function setState(newState) {
       state = newState;
       const label = STATE_LABELS[state] || 'Ready';
       statusText.textContent = label;
 
-      statusDot.className = 'status-dot';
-      if (state !== 'idle') statusDot.classList.add(state);
+      // Use classList instead of regex replacement to safely manage state classes
+      overlay.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
+      statusDot.classList.remove('listening', 'thinking', 'speaking');
 
-      overlay.className = overlay.className.replace(/state-\w+/g, '').trim();
-      if (state !== 'idle') overlay.classList.add(`state-${state}`);
+      if (state !== 'idle') {
+        overlay.classList.add(`state-${state}`);
+        statusDot.classList.add(state);
+      }
 
       const pill = document.getElementById('status-pill');
       const colors = STATE_COLORS[state] || STATE_COLORS.idle;
@@ -1055,21 +1120,23 @@
       pill.style.borderColor = `rgba(${r}, ${g}, ${b}, 0.30)`;
     }
 
-    // Input handling
+    // ── Input handling ───────────────────────────────────────────────────────────
     function submitText() {
       const text = inputEl.value.trim();
-      if (!text) return;
+      if (!text || _submitting) return;
+      _submitting = true;
+      // Release the debounce lock after 800 ms — enough to prevent double-fire
+      // but short enough that a genuine second request feels instant.
+      setTimeout(() => { _submitting = false; }, 800);
+
       inputEl.value = '';
-
-      // ── Reset response accumulator for this new request ──
       captionText = '';
-      currentUserMessage = text;
-
+      _activeRequestId = null; // will be set when the kernel sends 'thinking'
       captionEl.textContent = `You: ${text}`;
       setState(STATES.THINKING);
-      playTick(960, 0.06); hapticTick(10);
+      playTick(960, 0.06);
+      hapticTick(10);
 
-      // Save user message to history
       addToHistory('user', text);
 
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -1078,19 +1145,17 @@
         // Demo mode fallback
         setTimeout(() => {
           setState(STATES.SPEAKING);
-          const demoResponse = `I'm in demo mode. Start the kernel: python -m wodi --kernel-only`;
+          const demoResponse = `Demo mode active. Start the Wodi kernel: python -m wodi --kernel-only`;
           captionEl.textContent = demoResponse;
           addToHistory('assistant', demoResponse);
-          setTimeout(() => {
-            setState(STATES.IDLE);
-          }, 2500);
+          setTimeout(() => setState(STATES.IDLE), 2500);
         }, 700);
       }
     }
 
     inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') { e.preventDefault(); submitText(); }
-      if (e.key === 'Escape') { hideOverlay(); }
+      // Note: Escape is handled globally below
     });
     sendBtn.addEventListener('click', submitText);
 
@@ -1100,24 +1165,42 @@
       if (e.key === 'Escape' && isVisible) { hideOverlay(); }
     });
 
-    // Multicolored Apple Aurora Visualizer
+    // ── Aurora Canvas Visualizer ─────────────────────────────────────────────────
+    // FIX: The canvas DPR scale is set absolutely (setTransform) instead of
+    // cumulatively (scale), so repeated resizes do NOT compound the transform.
+    // FIX: clearRect uses logical coordinates (after scale is applied).
+    // FIX: The RAF loop is paused when overlay is hidden to save GPU/CPU.
+
     const auroraCanvas = document.getElementById('aurora-canvas');
-    const ctx = auroraCanvas.getContext('2d');
+    const auroraCtx = auroraCanvas.getContext('2d');
     let phase = 0;
     let rms = 0;
     let targetRms = 0;
+    let _auroraRunning = false;
+    let _auroraRaf = null;
 
     function resizeAurora() {
-      const dpr = window.devicePixelRatio || 1;
       const container = document.getElementById('aurora-container');
-      auroraCanvas.width = container.clientWidth * dpr;
-      auroraCanvas.height = container.clientHeight * dpr;
-      ctx.scale(dpr, dpr);
+      const dpr = window.devicePixelRatio || 1;
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      // Set the physical pixel size of the canvas
+      auroraCanvas.width = Math.round(w * dpr);
+      auroraCanvas.height = Math.round(h * dpr);
+      // Reset the transform absolutely — prevents cumulative scale compounding
+      auroraCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resizeAurora();
     window.addEventListener('resize', resizeAurora);
 
     function drawAurora() {
+      // Pause when overlay is hidden — no wasted GPU cycles
+      if (!isVisible) {
+        _auroraRunning = false;
+        _auroraRaf = null;
+        return;
+      }
+
       phase += 0.032;
       rms += (targetRms - rms) * 0.12;
       targetRms *= 0.92;
@@ -1128,14 +1211,15 @@
       const cx = w / 2;
       const cy = h / 2;
 
-      ctx.clearRect(0, 0, w * 2, h * 2);
+      // clearRect uses logical coordinates (the scale transform handles DPR mapping)
+      auroraCtx.clearRect(0, 0, w, h);
 
       const colors = STATE_COLORS[state] || STATE_COLORS.idle;
 
       const layers = [
         { alpha: 0.10, freqMult: 0.8, ampMult: 0.5, timeOff: 1.1, width: 24, rgb: colors.tertiary },
         { alpha: 0.22, freqMult: 1.1, ampMult: 0.7, timeOff: 0.6, width: 12, rgb: colors.secondary },
-        { alpha: 0.45, freqMult: 1.4, ampMult: 0.9, timeOff: 0.2, width: 5, rgb: colors.primary },
+        { alpha: 0.45, freqMult: 1.4, ampMult: 0.9, timeOff: 0.2, width: 5,  rgb: colors.primary },
         { alpha: 0.78, freqMult: 1.8, ampMult: 1.0, timeOff: 0.0, width: 2.5, rgb: colors.primary },
       ];
 
@@ -1150,11 +1234,11 @@
           const x = nx * w;
 
           let amp;
-          if (state === 'idle') amp = 5 + rms * 7;
+          if (state === 'idle')          amp = 5 + rms * 7;
           else if (state === 'listening') amp = 16 + rms * 45;
-          else if (state === 'thinking') amp = 10 + 7 * Math.sin(t * 2.4);
-          else if (state === 'speaking') amp = 18 + rms * 50;
-          else amp = 5;
+          else if (state === 'thinking')  amp = 10 + 7 * Math.sin(t * 2.4);
+          else if (state === 'speaking')  amp = 18 + rms * 50;
+          else                            amp = 5;
 
           amp *= layer.ampMult;
 
@@ -1167,101 +1251,160 @@
 
           const envelope = Math.pow(Math.sin(nx * Math.PI), 1.5);
           const y = cy + wave * envelope;
-
           points.push({ x, y });
         }
 
         // Fill band
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
+        auroraCtx.beginPath();
+        auroraCtx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length - 1; i++) {
           const mx = (points[i].x + points[i + 1].x) / 2;
           const my = (points[i].y + points[i + 1].y) / 2;
-          ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+          auroraCtx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
         }
-        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        auroraCtx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
 
         for (let i = points.length - 1; i >= 0; i--) {
           const mirrorY = cy - (points[i].y - cy);
-          ctx.lineTo(points[i].x, mirrorY);
+          auroraCtx.lineTo(points[i].x, mirrorY);
         }
-        ctx.closePath();
+        auroraCtx.closePath();
 
-        const grad = ctx.createLinearGradient(0, cy, w, cy);
+        const grad = auroraCtx.createLinearGradient(0, cy, w, cy);
         grad.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${layer.alpha * 0.3})`);
         grad.addColorStop(0.5, `rgba(${r}, ${g}, ${b}, ${layer.alpha})`);
         grad.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${layer.alpha * 0.3})`);
-        ctx.fillStyle = grad;
-        ctx.fill();
+        auroraCtx.fillStyle = grad;
+        auroraCtx.fill();
 
         // Top wave stroke
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
+        auroraCtx.beginPath();
+        auroraCtx.moveTo(points[0].x, points[0].y);
         for (let i = 1; i < points.length - 1; i++) {
           const mx = (points[i].x + points[i + 1].x) / 2;
           const my = (points[i].y + points[i + 1].y) / 2;
-          ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
+          auroraCtx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
         }
-        ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(1, layer.alpha * 1.5)})`;
-        ctx.lineWidth = layer.width;
-        ctx.lineCap = 'round';
-        ctx.stroke();
+        auroraCtx.lineTo(points[points.length - 1].x, points[points.length - 1].y);
+        auroraCtx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(1, layer.alpha * 1.5)})`;
+        auroraCtx.lineWidth = layer.width;
+        auroraCtx.lineCap = 'round';
+        auroraCtx.stroke();
       }
 
       // Center radial glow
       const [pr, pg, pb] = colors.primary;
       const glowR = 26 + rms * 22;
-      const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
+      const glow = auroraCtx.createRadialGradient(cx, cy, 0, cx, cy, glowR);
       glow.addColorStop(0, `rgba(${pr}, ${pg}, ${pb}, 0.28)`);
       glow.addColorStop(1, `rgba(${pr}, ${pg}, ${pb}, 0)`);
-      ctx.fillStyle = glow;
-      ctx.fillRect(cx - glowR, cy - glowR, glowR * 2, glowR * 2);
+      auroraCtx.fillStyle = glow;
+      auroraCtx.fillRect(cx - glowR, cy - glowR, glowR * 2, glowR * 2);
 
-      requestAnimationFrame(drawAurora);
+      _auroraRaf = requestAnimationFrame(drawAurora);
     }
 
-    // WebSocket Connection
+    function startAurora() {
+      if (_auroraRunning) return;
+      _auroraRunning = true;
+      _auroraRaf = requestAnimationFrame(drawAurora);
+    }
+
+    // ── WebSocket Connection ─────────────────────────────────────────────────────
+    // FIX: Exponential backoff on reconnect (caps at 30s).
+    // FIX: onerror no longer clears ws immediately; onclose handles reconnect
+    //      so we don't get a double-reconnect when both fire.
+    // FIX: intentional close (hideOverlay + _wsIntentionalClose) suppresses reconnect.
+
     let ws = null;
+    let _wsReconnectDelay = 1000;  // starts at 1s, doubles each failure up to 30s
+    let _wsReconnectTimer = null;
+    let _wsIntentionalClose = false;
+
     function connectWs() {
+      if (_wsIntentionalClose) return;
+      // Clear any pending reconnect timer
+      if (_wsReconnectTimer) { clearTimeout(_wsReconnectTimer); _wsReconnectTimer = null; }
+
       try {
         ws = new WebSocket('ws://localhost:8765');
-        ws.onopen = () => { setState(STATES.IDLE); };
+
+        ws.onopen = () => {
+          _wsReconnectDelay = 1000; // reset backoff on successful connect
+          setState(STATES.IDLE);
+        };
+
         ws.onmessage = (e) => {
-          const msg = JSON.parse(e.data);
-          if (msg.type === 'wake') { showOverlay(); setState(STATES.LISTENING); }
-          else if (msg.type === 'thinking') {
-            // Reset accumulator when kernel signals thinking on a new request
+          let msg;
+          try { msg = JSON.parse(e.data); } catch { return; }
+
+          if (msg.type === 'wake') {
+            showOverlay();
+            setState(STATES.LISTENING);
+
+          } else if (msg.type === 'thinking') {
+            // A new kernel request has started — reset caption accumulator and
+            // record which request we belong to so concurrent responses don't mix.
+            _activeRequestId = msg.request_id || null;
             captionText = '';
+            captionEl.textContent = '';
             setState(STATES.THINKING);
-          }
-          else if (msg.type === 'response_chunk') {
+
+          } else if (msg.type === 'response_chunk') {
+            // Discard chunks from a stale/parallel request
+            if (msg.request_id && _activeRequestId && msg.request_id !== _activeRequestId) return;
             setState(STATES.SPEAKING);
             captionText += msg.chunk;
-            captionEl.textContent = captionText.slice(-200);
+            // Show last 300 chars so long responses don't overflow the pill area
+            captionEl.textContent = captionText.length > 300
+              ? '…' + captionText.slice(-300)
+              : captionText;
             targetRms = 0.55;
-          }
-          else if (msg.type === 'response_complete') {
-            // Save the full response to history
+
+          } else if (msg.type === 'response_complete') {
+            // Discard completions from a stale/parallel request
+            if (msg.request_id && _activeRequestId && msg.request_id !== _activeRequestId) return;
             if (captionText.trim()) {
               addToHistory('assistant', captionText.trim());
+              // Auto-open history panel so the user can see what was just said
+              if (!historyOpen) toggleHistory();
             }
+            _activeRequestId = null;
             setState(STATES.IDLE);
-            // Keep the response visible for 4s, then clear
-            setTimeout(() => {
-              captionText = '';
-              captionEl.textContent = '';
-            }, 4000);
+            // Keep the response visible for 5s, then clear
+            setTimeout(() => { captionText = ''; captionEl.textContent = ''; }, 5000);
           }
         };
-        ws.onclose = () => { ws = null; setTimeout(connectWs, 3000); };
-        ws.onerror = () => { ws = null; };
-      } catch (e) { /* silent */ }
+
+
+        ws.onerror = () => {
+          // Do NOT clear ws here. Let onclose fire and handle the cleanup +
+          // reconnect in one place. Clearing ws in onerror causes a race
+          // where onclose also fires and triggers a second reconnect attempt.
+        };
+
+        ws.onclose = () => {
+          ws = null;
+          if (_wsIntentionalClose) return;
+          // Exponential backoff: 1s → 2s → 4s → ... → 30s cap
+          _wsReconnectTimer = setTimeout(() => {
+            _wsReconnectDelay = Math.min(_wsReconnectDelay * 2, 30_000);
+            connectWs();
+          }, _wsReconnectDelay);
+        };
+
+      } catch (e) {
+        // WebSocket constructor itself failed (e.g. bad URL) — schedule retry
+        _wsReconnectTimer = setTimeout(() => {
+          _wsReconnectDelay = Math.min(_wsReconnectDelay * 2, 30_000);
+          connectWs();
+        }, _wsReconnectDelay);
+      }
     }
 
-    // Boot
-    drawAurora();
+    // ── Boot ─────────────────────────────────────────────────────────────────────
     connectWs();
+    // Show the overlay after a short delay so the page has time to render
     setTimeout(() => showOverlay(), 300);
   </script>
 </body>

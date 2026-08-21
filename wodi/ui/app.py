@@ -56,11 +56,9 @@ class WodiApp:
         self._kernel_thread: threading.Thread | None = None
         self._confirm_future: asyncio.Future | None = None
 
-        # Wire signals
+        # Wire signals (overlay manages response_chunk and response_complete directly)
         self._bridge.wake_detected.connect(self._on_wake)
         self._bridge.speech_started.connect(self._on_speech_start)
-        self._bridge.response_chunk.connect(self._on_response_chunk)
-        self._bridge.response_complete.connect(self._on_response_complete)
         self._bridge.kernel_ready.connect(self._on_kernel_ready)
         self._bridge.kernel_error.connect(self._on_kernel_error)
 
@@ -123,7 +121,12 @@ class WodiApp:
 
     def _setup_global_hotkey(self) -> None:
         """
-        Register Ctrl+Space global hotkey for toggling the overlay.
+        Register global hotkeys for toggling the overlay.
+
+        Registered hotkeys:
+          Ctrl+Space      — primary Wodi hotkey (legacy)
+          Ctrl+Alt+Space  — secondary hotkey (from Nex prototype)
+
         Uses pynput for system-wide listening.
         Falls back to keyboard module if pynput is unavailable.
         """
@@ -133,22 +136,28 @@ class WodiApp:
 
             ctrl_pressed = False
 
+            alt_pressed  = False
+
             def _on_press(key: Any) -> None:
-                nonlocal ctrl_pressed
+                nonlocal ctrl_pressed, alt_pressed
                 try:
                     if key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
                         ctrl_pressed = True
+                    elif key in (keyboard.Key.alt_l, keyboard.Key.alt_r):
+                        alt_pressed = True
                     elif key == keyboard.Key.space and ctrl_pressed:
-                        # Toggle the overlay via signal (thread-safe)
+                        # Ctrl+Space  OR  Ctrl+Alt+Space — both toggle the overlay
                         self._bridge.wake_detected.emit()
                 except Exception:
                     pass
 
             def _on_release(key: Any) -> None:
-                nonlocal ctrl_pressed
+                nonlocal ctrl_pressed, alt_pressed
                 try:
                     if key in (keyboard.Key.ctrl_l, keyboard.Key.ctrl_r):
                         ctrl_pressed = False
+                    elif key in (keyboard.Key.alt_l, keyboard.Key.alt_r):
+                        alt_pressed = False
                 except Exception:
                     pass
 
@@ -330,3 +339,44 @@ class WodiApp:
         if self._kernel and self._kernel_loop:
             asyncio.run_coroutine_threadsafe(self._kernel.stop(), self._kernel_loop)
         self._qt_app.quit()
+
+
+# ── Web-UI mode (FastAPI + WebEngine overlay) ─────────────────────────────────
+
+def start_web_ui_mode(port: int | None = None, config_path: str | None = None) -> None:
+    """
+    Start Wodi in Web-UI mode.
+
+    1. Launches the WodiKernel on a background asyncio thread (if Ollama is
+       available) so local tool execution still works.
+    2. Starts the FastAPI SSE backend server on a daemon thread.
+    3. Launches the WebEngine overlay (slide/fade animations, OLED HTML UI).
+
+    This mode supports both cloud (Gemini/Groq) and local (Ollama) providers
+    and renders the UI using the HTML/CSS/JS renderer in wodi/ui/renderer/.
+    """
+    import threading
+    import time
+
+    from wodi.utils.llm_factory import get_backend_port
+    from wodi.ipc.fastapi_server import serve as _serve_fastapi
+    from wodi.ui.web_overlay import start_web_overlay
+
+    _port = port or get_backend_port()
+
+    # Start FastAPI backend daemon thread
+    server_thread = threading.Thread(
+        target=_serve_fastapi,
+        args=(_port,),
+        daemon=True,
+        name="wodi-fastapi",
+    )
+    server_thread.start()
+    log.info("ui.web_mode.server_started", port=_port)
+
+    # Brief wait for uvicorn to bind
+    time.sleep(0.8)
+
+    # Launch WebEngine overlay (blocking — runs Qt event loop)
+    start_web_overlay(server_url=f"http://127.0.0.1:{_port}/")
+

@@ -1,0 +1,16 @@
+{
+  "name": "nex-desktop-agent",
+  "version": "1.0.0",
+  "description": "AI-powered desktop assistant with hotkey activation, multi-agent architecture",
+  "main": "main.py",
+  "scripts": {
+    "start": "python main.py",
+    "dev": "python main.py"
+  },
+  "keywords": ["ai", "agent", "pyside6", "desktop-automation", "langgraph"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.4.5"
+  }
+}

@@ -22,16 +22,16 @@ perception:
 
   vad:
     enabled: true
-    threshold: 0.4             # Silero VAD sensitivity (0.0–1.0)
-    min_speech_ms: 250
-    max_silence_ms: 800
+    threshold: 0.55             # Raised from 0.4 – reduces false positives on Intel UHD ambient noise
+    min_speech_ms: 600          # Raised from 250 – ignore short noise bursts
+    max_silence_ms: 1000        # Wait a bit longer for sentence completion
 
   stt:
     model: "base"              # tiny | base | small | medium | large-v3
     device: "auto"             # auto | cpu | cuda
     language: "en"
-    beam_size: 5
-    use_screen_prompt: true    # Feed OCR text as Whisper initial_prompt
+    beam_size: 3               # Reduced from 5 for faster CPU inference
+    use_screen_prompt: false   # Disabled – easyocr on CPU takes 3-5s and blocks responses
 
   screen:
     enabled: true
@@ -49,14 +49,14 @@ perception:
 # ── Models ───────────────────────────────────────────────────────────────────
 models:
   ollama_host: "http://localhost:11434"
-  ollama_timeout: 120
+  ollama_timeout: 45            # Reduced from 120s \u2013 react_agent has its own 30s per-iteration timeout
 
   # Per-tier overrides — auto-selected based on hardware detection
   # Override individual keys here to use a specific model regardless of tier.
-  router: ""                   # Intent classifier (leave empty = auto)
-  planner: ""                  # Task decomposition model (leave empty = auto)
-  critic: ""                   # Verifier model (leave empty = auto)
-  synthesizer: ""              # Final response model (leave empty = auto)
+  router: "qwen2.5:0.5b"       # Smallest/fastest for intent routing
+  planner: "qwen2.5:1.5b"      # Task decomposition model
+  critic: "qwen2.5:0.5b"       # Verifier (using heuristics on standard tier anyway)
+  synthesizer: "qwen2.5:1.5b"  # Final response model
   vision: ""                   # VLM model (leave empty = auto)
   tts_model: ""                # TTS model path (leave empty = auto)
 
