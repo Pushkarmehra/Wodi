@@ -1,7 +1,7 @@
-{
-  "name": "wodi-example-plugin",
+﻿{
+  "name": "Woody-example-plugin",
   "version": "1.0.0",
-  "description": "Example Wodi MCP plugin demonstrating the plugin standard",
+  "description": "Example Woody MCP plugin demonstrating the plugin standard",
   "transport": "stdio",
   "permission_tier": "read_only",
   "tools": ["get_joke", "get_quote"],

@@ -1,8 +1,8 @@
-# Wodi v3.0 — Local-First Windows AI Operating System Layer
+# Woody v3.0 — Local-First Windows AI Operating System Layer
 
 > **"Perceive. Reason. Act. Learn. Stay invisible until needed."**
 
-Wodi is a persistent, agentic AI layer between you and Windows — voice-activated, local-first, multi-agent, and production-grade.
+Woody is a persistent, agentic AI layer between you and Windows — voice-activated, local-first, multi-agent, and production-grade.
 
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12+-blue.svg)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -14,7 +14,7 @@ Wodi is a persistent, agentic AI layer between you and Windows — voice-activat
 
 | Feature | Status |
 |---|---|
-| Wake word ("Hey Jarvis") | ✅ Phase 0 |
+| Wake word ("Hey Woody") | ✅ Phase 0 |
 | Voice Activity Detection (Silero) | ✅ Phase 0 |
 | Streaming STT (Faster-Whisper) | ✅ Phase 0 |
 | Hardware tier auto-detection | ✅ Phase 0 |
@@ -72,17 +72,17 @@ ollama pull qwen2.5:0.5b
 ollama serve
 ```
 
-### 5. Launch Wodi
+### 5. Launch Woody
 
 ```bash
 # Full app (with GUI orb + system tray):
-python -m wodi
+python -m woody
 
 # Headless kernel only (type commands in terminal):
-wodi --kernel-only
+woody --kernel-only
 
 # Run the Phase 1 eval suite:
-wodi --eval
+woody --eval
 ```
 
 ---
@@ -91,10 +91,10 @@ wodi --eval
 
 | Trigger | Method |
 |---|---|
-| Voice | Say "Hey Jarvis" (or configured phrase) |
+| Voice | Say "Hey Woody" (or configured phrase) |
 | Hotkey | Press **Ctrl+Space** |
 | Tray | Double-click the system tray icon |
-| CLI | Type directly in `wodi --kernel-only` |
+| CLI | Type directly in `woody --kernel-only` |
 
 **Example commands:**
 - *"What time is it?"*
@@ -134,7 +134,7 @@ Voice/Text/Hotkey
 
 ## ⚙️ Configuration
 
-Edit [`config/wodi_config.yaml`](config/wodi_config.yaml) to customize:
+Edit [`config/woody_config.yaml`](config/woody_config.yaml) to customize:
 
 - **Wake word** phrase and engine
 - **Model overrides** per tier
@@ -168,10 +168,10 @@ general:
 pytest tests/unit/ -v
 
 # Phase 1 eval suite (target: >90% pass)
-wodi --eval
+woody --eval
 
 # Or directly:
-python -m wodi.observability.eval.harness
+python -m woody.observability.eval.harness
 ```
 
 ---
@@ -179,8 +179,8 @@ python -m wodi.observability.eval.harness
 ## 📦 Project Structure
 
 ```
-wodi/
-├── wodi/
+woody/
+├── woody/
 │   ├── kernel/       # Core orchestration + config
 │   ├── perception/   # Wake word, VAD, STT, screen, OCR
 │   ├── planner/      # LangGraph planner + router + prompts

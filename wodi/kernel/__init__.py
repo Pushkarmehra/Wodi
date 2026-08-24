@@ -1,1 +1,0 @@
-"""Kernel package."""

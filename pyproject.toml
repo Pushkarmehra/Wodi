@@ -3,10 +3,10 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "wodi"
+name = "woody"
 version = "3.0.0"
-description = "Wodi — Local-First Windows AI Operating System Layer"
-authors = [{ name = "Wodi Team" }]
+description = "Woody — Local-First Windows AI Operating System Layer"
+authors = [{ name = "Woody Team" }]
 requires-python = ">=3.12"
 license = { text = "MIT" }
 readme = "README.md"
@@ -99,7 +99,7 @@ tts = [
 ]
 # pip install -e ".[all]"  — everything
 all = [
-    "wodi[audio,desktop,vision,ui,llm,cloud,web,tavily,browser,memory,ipc,tts]",
+    "woody[audio,desktop,vision,ui,llm,cloud,web,tavily,browser,memory,ipc,tts]",
 ]
 dev = [
     "pytest>=8.3.0",
@@ -112,14 +112,14 @@ dev = [
 
 
 [project.scripts]
-wodi = "wodi.__main__:main"
-wodi-kernel = "wodi.kernel.kernel:cli_start"
-wodi-eval = "wodi.observability.eval.harness:cli_run"
-wodi-serve = "wodi.ipc.fastapi_server:serve"
+woody = "woody.__main__:main"
+woody-kernel = "woody.kernel.kernel:cli_start"
+woody-eval = "woody.observability.eval.harness:cli_run"
+woody-serve = "woody.ipc.fastapi_server:serve"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["wodi*"]
+include = ["woody*"]
 
 [tool.ruff]
 line-length = 100

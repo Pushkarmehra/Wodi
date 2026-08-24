@@ -1,5 +1,5 @@
 # requirements-core.txt
-# Minimal dependencies to run: wodi --kernel-only
+# Minimal dependencies to run: woody --kernel-only
 # Install with: pip install -r requirements-core.txt
 # These are small/fast installs — no heavy ML models
 

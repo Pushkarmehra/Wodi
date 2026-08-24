@@ -1,5 +1,5 @@
-"""
-Example Wodi MCP Plugin Server — demonstrates the plugin standard.
+﻿"""
+Example Woody MCP Plugin Server — demonstrates the plugin standard.
 
 Tools:
   - get_joke: Returns a programming joke

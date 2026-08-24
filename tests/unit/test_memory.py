@@ -1,11 +1,11 @@
-"""Unit tests for episodic and semantic memory."""
+﻿"""Unit tests for episodic and semantic memory."""
 from __future__ import annotations
 
 import pytest
 from pathlib import Path
 
-from wodi.memory.episodic import EpisodicMemory
-from wodi.memory.semantic import SemanticMemory, UserPreferences
+from woody.memory.episodic import EpisodicMemory
+from woody.memory.semantic import SemanticMemory, UserPreferences
 
 
 class TestEpisodicMemory:

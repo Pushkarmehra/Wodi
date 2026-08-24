@@ -1,0 +1,169 @@
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  Woody Configuration v3.0
+#  Edit this file to customize Woody's behavior.
+#  Hardware tier is auto-detected at startup; override with: tier: "standard"
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# ── General ──────────────────────────────────────────────────────────────────
+general:
+  name: "Woody"
+  data_dir: "~/.woody"          # All persistent data (logs, memory, cache)
+  log_level: "INFO"            # DEBUG | INFO | WARNING | ERROR
+  tier: "auto"                 # auto | lite | standard | pro
+
+# ── Perception ───────────────────────────────────────────────────────────────
+perception:
+  wake_word:
+    enabled: true
+    engine: "openwakeword"     # openwakeword | porcupine | disabled
+    phrase: "hey woody"       # wake word phrase
+    threshold: 0.5
+    porcupine_key: ""          # Porcupine access key (if using porcupine engine)
+
+  vad:
+    enabled: true
+    threshold: 0.55             # Raised from 0.4 – reduces false positives on Intel UHD ambient noise
+    min_speech_ms: 600          # Raised from 250 – ignore short noise bursts
+    max_silence_ms: 1000        # Wait a bit longer for sentence completion
+
+  stt:
+    model: "base"              # tiny | base | small | medium | large-v3
+    device: "auto"             # auto | cpu | cuda
+    language: "en"
+    beam_size: 3               # Reduced from 5 for faster CPU inference
+    use_screen_prompt: false   # Disabled – easyocr on CPU takes 3-5s and blocks responses
+
+  screen:
+    enabled: true
+    event_driven: true         # Win32 SetWinEventHook (low CPU) vs poll
+    poll_interval_ms: 500      # Fallback interval if event-driven unavailable
+    capture_region: "active_window"  # full | active_window | region
+
+  clipboard:
+    watch: true                # Monitor clipboard changes as context
+
+  ocr:
+    engine: "easyocr"          # easyocr | tesseract
+    language: "en"
+
+# ── Models (Groq Cloud Engine) ───────────────────────────────────────────────
+models:
+  provider: "groq"
+  timeout: 30
+
+  # Groq Model Configuration
+  router: "openai/gpt-oss-20b"         # Ultra-fast model for intent classification (<100ms)
+  planner: "openai/gpt-oss-120b"       # High reasoning 120B model for task decomposition
+  critic: "openai/gpt-oss-20b"         # Fast verification model
+  synthesizer: "openai/gpt-oss-120b"   # High quality 120B model for response generation
+  vision: "llama-3.2-11b-vision-preview"  # Groq multimodal vision model
+  tts_model: ""
+
+# ── Agents ───────────────────────────────────────────────────────────────────
+agents:
+  desktop:
+    enabled: true
+    timeout_seconds: 30
+
+  vision:
+    enabled: true
+    timeout_seconds: 45
+    capture_before_action: true
+
+  browser:
+    enabled: true              # Real-time web search and browser automation
+    browser: "chromium"
+    headless: false
+    timeout_seconds: 60
+
+  coding:
+    enabled: false             # Requires sandbox configuration
+    sandbox: "job_object"      # job_object | wsl2
+    timeout_seconds: 30
+
+  system:
+    enabled: true
+    timeout_seconds: 15
+
+# ── Memory ───────────────────────────────────────────────────────────────────
+memory:
+  episodic:
+    enabled: true
+    max_sessions: 10000
+    embedding_model: "all-minilm"  # Ollama embedding model
+
+  semantic:
+    enabled: true
+    # Preference profile — also editable via Settings UI
+    preferred_apps:
+      browser: "chrome"
+      editor: "vscode"
+      terminal: "windows terminal"
+    tone: "concise"            # concise | verbose | friendly
+    tts_rate: 1.0
+    tts_voice: "en_US-lessac-medium"  # Piper voice model
+
+  rag:
+    enabled: false             # Phase 4 feature
+    folders: []                # Paths to index for local RAG
+
+# ── Tools / MCP ──────────────────────────────────────────────────────────────
+tools:
+  plugin_dir: "plugins"        # Directory to scan for MCP plugin manifests
+  external_plugins: []         # Additional manifest paths
+
+  # Default permission tier overrides
+  permissions:
+    auto_allow_read: true
+    auto_allow_system_info: true
+    confirm_browser_actions: true
+    confirm_file_write: true
+    block_registry_edits: true
+    block_uac_actions: true
+
+# ── Synthesis / TTS ──────────────────────────────────────────────────────────
+synthesis:
+  tts:
+    engine: "inworld"          # inworld (Inworld AI Neural TTS-2) | edge-tts | piper | kokoro | pyttsx3 | disabled
+    voice: "Hades"             # Inworld Deep Mysterious Voice with Attitude: Hades
+    model: "inworld-tts-2"     # inworld-tts-2
+    delivery_mode: "CREATIVE"  # CREATIVE | BALANCED | STABLE
+    language: "AUTO"           # AUTO | BCP-47 tag (e.g. en-US)
+    stream: true
+    rate: 0.96
+    volume: 0.95
+
+    # Piper model — fallback offline model
+    piper_model_path: "~/.woody/models/tts/en_US-lessac-medium.onnx"
+    piper_config_path: "~/.woody/models/tts/en_US-lessac-medium.onnx.json"
+
+
+# ── UI ───────────────────────────────────────────────────────────────────────
+ui:
+  hotkey: "ctrl+space"
+  orb_position: "bottom_right" # bottom_right | bottom_center | top_right
+  theme: "dark"                # dark | light | system
+  high_contrast: false
+  show_captions: true
+  caption_font_size: 14
+  confirmation_timeout_seconds: 30
+
+# ── Observability ─────────────────────────────────────────────────────────────
+observability:
+  audit_log:
+    enabled: true
+    path: "~/.woody/audit.db"
+    max_entries: 100000
+
+  telemetry:
+    enabled: false             # Opt-in — local only, never sent to cloud
+    export_port: 9090          # Prometheus metrics port
+
+# ── Cloud Fallback (opt-in) ───────────────────────────────────────────────────
+cloud:
+  enabled: false               # Explicit toggle — visible indicator when active
+  provider: "anthropic"        # anthropic | openai
+  api_key: ""
+  model: "claude-3-5-sonnet-20241022"
+  redact_screenshots: true     # Blur/redact screenshots before cloud calls
+  redact_audio: false

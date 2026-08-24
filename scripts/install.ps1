@@ -1,4 +1,4 @@
-# Wodi Installation Script for Windows
+﻿# Woody Installation Script for Windows
 # Run as: .\scripts\install.ps1
 # Requires: Python 3.12+, internet connection
 
@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "  ╔══════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "  ║     Wodi v3.0 Installation Script    ║" -ForegroundColor Cyan
+Write-Host "  ║     Woody v3.0 Installation Script    ║" -ForegroundColor Cyan
 Write-Host "  ╚══════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
@@ -63,7 +63,7 @@ if (-not $SkipOllama) {
 # ── Detect hardware tier ──────────────────────────────────────────────────────
 Write-Host "[4/6] Detecting hardware tier..." -ForegroundColor Yellow
 $detectedTier = python -c "
-from wodi.utils.hardware import detect_hardware
+from woody.utils.hardware import detect_hardware
 hw = detect_hardware()
 print(hw.tier.value)
 " 2>&1
@@ -97,8 +97,8 @@ if (-not $SkipModels) {
 }
 
 # ── Create data directory ─────────────────────────────────────────────────────
-Write-Host "[6/6] Creating Wodi data directory..." -ForegroundColor Yellow
-$dataDir = "$env:USERPROFILE\.wodi"
+Write-Host "[6/6] Creating Woody data directory..." -ForegroundColor Yellow
+$dataDir = "$env:USERPROFILE\.Woody"
 if (-not (Test-Path $dataDir)) {
     New-Item -ItemType Directory -Path $dataDir | Out-Null
 }
@@ -111,9 +111,9 @@ Write-Host "  ╚═════════════════════
 Write-Host ""
 Write-Host "  Next steps:" -ForegroundColor White
 Write-Host "  1. Start Ollama:    ollama serve" -ForegroundColor Gray
-Write-Host "  2. Start Wodi:      python -m wodi" -ForegroundColor Gray
-Write-Host "  3. Headless mode:   wodi --kernel-only" -ForegroundColor Gray
-Write-Host "  4. Run eval suite:  wodi --eval" -ForegroundColor Gray
+Write-Host "  2. Start Woody:      python -m Woody" -ForegroundColor Gray
+Write-Host "  3. Headless mode:   Woody --kernel-only" -ForegroundColor Gray
+Write-Host "  4. Run eval suite:  Woody --eval" -ForegroundColor Gray
 Write-Host ""
 Write-Host "  Optional: Download TTS model for voice output:" -ForegroundColor White
 Write-Host "  https://huggingface.co/rhasspy/piper-voices" -ForegroundColor Gray

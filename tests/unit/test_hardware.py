@@ -1,10 +1,10 @@
-"""Unit tests for hardware detection."""
+﻿"""Unit tests for hardware detection."""
 from __future__ import annotations
 
 import pytest
 from unittest.mock import patch, MagicMock
 
-from wodi.utils.hardware import detect_hardware, HardwareTier, _assign_tier
+from woody.utils.hardware import detect_hardware, HardwareTier, _assign_tier
 
 
 class TestHardwareTierAssignment:

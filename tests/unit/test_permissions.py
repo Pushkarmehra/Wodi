@@ -1,4 +1,4 @@
-"""Unit tests for MCP manifest permission enforcement."""
+﻿"""Unit tests for MCP manifest permission enforcement."""
 from __future__ import annotations
 
 import json
@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from wodi.tools.mcp_manifest import ManifestLoader, PermissionDeniedError, PermissionTier
+from woody.tools.mcp_manifest import ManifestLoader, PermissionDeniedError, PermissionTier
 
 
 class TestManifestPermissions:

@@ -1,4 +1,4 @@
-name: Wodi CI
+name: Woody CI
 
 on:
   push:
@@ -30,7 +30,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest tests/unit/ -v --tb=short --cov=wodi --cov-report=term-missing
+          pytest tests/unit/ -v --tb=short --cov=woody --cov-report=term-missing
         env:
           PYTHONPATH: .
 
@@ -44,4 +44,4 @@ jobs:
           python-version: "3.12"
       - run: pip install ruff
       - name: Ruff lint
-        run: ruff check wodi/ --ignore E501,B008
+        run: ruff check woody/ --ignore E501,B008
