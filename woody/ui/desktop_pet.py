@@ -969,13 +969,19 @@ class WoodyAIPet:
 
     # ── Voice Synthesis (Pipelined Inworld / Edge Neural Voice) ───────────────
 
-    def start_voice_stream(self) -> asyncio.Queue[str | None]:
+    def start_voice_stream(self) -> asyncio.Queue[str | None] | None:
         """Start a new sentence queue for pipelined streaming speech with zero delay."""
         self.stop_voice()
-        fut = asyncio.run_coroutine_threadsafe(self._create_voice_queue_async(), self._voice_loop)
-        q = fut.result(timeout=1.0)
-        self._active_voice_queue = q
-        return q
+        if not hasattr(self, "_voice_loop") or self._voice_loop is None or not self._voice_loop.is_running():
+            return None
+        try:
+            fut = asyncio.run_coroutine_threadsafe(self._create_voice_queue_async(), self._voice_loop)
+            q = fut.result(timeout=1.0)
+            self._active_voice_queue = q
+            return q
+        except Exception as e:
+            log.warning("voice_stream_start_failed", error=str(e))
+            return None
 
     async def _create_voice_queue_async(self) -> asyncio.Queue[str | None]:
         q: asyncio.Queue[str | None] = asyncio.Queue()
@@ -1011,7 +1017,9 @@ class WoodyAIPet:
         if not text.strip():
             return
         clauses = self.tts._split_into_sentences(text) if hasattr(self.tts, "_split_into_sentences") else [text]
-        self.start_voice_stream()
+        q = self.start_voice_stream()
+        if q is None:
+            return
         for c in clauses:
             self.push_voice_sentence(c)
         self.finish_voice_stream()
@@ -1308,9 +1316,12 @@ class WoodyAIPet:
                 pass
 
         # Play shutdown animation sequence before exit
-        self.set_action("shutdown", loop=False, on_finish=_do_destroy)
-        self.say("See you next time! Farewell~ 👋", timeout_s=2, speak_voice=True)
-        self.window.after(2200, _do_destroy)
+        try:
+            self.set_action("shutdown", loop=False, on_finish=_do_destroy)
+            self.say("See you next time! Farewell~ 👋", timeout_s=2, speak_voice=False)
+        except Exception:
+            pass
+        self.window.after(1500, _do_destroy)
 
 
 def run_pet(server_url: str = "http://127.0.0.1:8765") -> None:
