@@ -1,5 +1,0 @@
-[console_scripts]
-woody = woody.__main__:main
-woody-eval = woody.observability.eval.harness:cli_run
-woody-kernel = woody.kernel.kernel:cli_start
-woody-serve = woody.ipc.fastapi_server:serve

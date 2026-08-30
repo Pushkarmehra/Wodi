@@ -313,8 +313,11 @@ async def _langgraph_stream(prompt: str) -> AsyncGenerator[dict, None]:
         else list(conversation_history)
     )
 
-    inputs = {"messages": context}
-    full_response = ""
+    tts = _get_tts_engine()
+    sentence_queue: asyncio.Queue[str | None] | None = None
+    if tts and getattr(tts, "engine", "") != "disabled":
+        sentence_queue = asyncio.Queue()
+        asyncio.create_task(tts.speak_sentence_stream(sentence_queue))
 
     try:
         async for event in graph.astream(
@@ -341,6 +344,10 @@ async def _langgraph_stream(prompt: str) -> AsyncGenerator[dict, None]:
                         message_text = last.content
                         full_response = message_text
                         msg_type = "response"
+                        if sentence_queue and message_text:
+                            clauses = tts._split_into_sentences(message_text) if tts else [message_text]
+                            for c in clauses:
+                                await sentence_queue.put(c)
                 elif isinstance(last, ToolMessage):
                     tool_name = getattr(last, "name", "tool")
                     content = str(last.content)
@@ -369,11 +376,11 @@ async def _langgraph_stream(prompt: str) -> AsyncGenerator[dict, None]:
                     })
                 }
 
+        if sentence_queue:
+            await sentence_queue.put(None)
+
         if full_response:
             conversation_history.append(AIMessage(content=full_response))
-            tts = _get_tts_engine()
-            if tts and getattr(tts, "engine", "") != "disabled":
-                asyncio.create_task(tts.speak(full_response))
 
     except Exception as e:
         log.error("fastapi.langgraph_error", error=str(e))

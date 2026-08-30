@@ -33,3 +33,9 @@ __pycache__/
 # Large data / cache
 .cache/
 .qdrant_storage/
+.pytest_cache/
+
+# Build & packaging
+*.egg-info/
+build/
+dist/

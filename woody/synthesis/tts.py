@@ -364,11 +364,13 @@ class TTSEngine:
         """Pre-fetch and cache common assistant openers in background for 0ms instant speech."""
         common = [
             "I am Woody. What do you seek?",
+            "Woody OS online. All systems nominal!",
             "Consider it done.",
             "Summoned. What is your will?",
             "As you command.",
-            "The shadows obey.",
-            "I am watching."
+            "Woody at your service! Ready for your command.",
+            "Systems nominal! What shall we do?",
+            "I am Woody. Operating system layer ready.",
         ]
         for phrase in common:
             try:
@@ -854,29 +856,31 @@ class TTSEngine:
     def stop(self) -> None:
         """Stop any currently playing speech immediately."""
         self._stop_event.set()
-        try:
-            import ctypes
-            ctypes.windll.winmm.mciSendStringW("stop all", None, 0, 0)
-            ctypes.windll.winmm.mciSendStringW("close all", None, 0, 0)
-        except Exception:
-            pass
-        try:
-            import sounddevice as sd
-
-            sd.stop()
-        except Exception:
-            pass
-        try:
-            import pythoncom
-            import win32com.client
-            pythoncom.CoInitialize()
+        if self._speaking:
             try:
-                speaker = win32com.client.Dispatch("SAPI.SpVoice")
-                speaker.Speak("", 2)  # SVSFPurgeBeforeSpeak = 2
-            finally:
-                pythoncom.CoUninitialize()
-        except Exception:
-            pass
+                import ctypes
+                ctypes.windll.winmm.mciSendStringW("stop all", None, 0, 0)
+                ctypes.windll.winmm.mciSendStringW("close all", None, 0, 0)
+            except Exception:
+                pass
+            if self.engine in ("piper", "kokoro"):
+                try:
+                    import sounddevice as sd
+                    sd.stop()
+                except Exception:
+                    pass
+            if self.engine in ("pyttsx3", "sapi"):
+                try:
+                    import pythoncom
+                    import win32com.client
+                    pythoncom.CoInitialize()
+                    try:
+                        speaker = win32com.client.Dispatch("SAPI.SpVoice")
+                        speaker.Speak("", 2)  # SVSFPurgeBeforeSpeak = 2
+                    finally:
+                        pythoncom.CoUninitialize()
+                except Exception:
+                    pass
         self._speaking = False
 
     @property
