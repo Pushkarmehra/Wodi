@@ -1,69 +1,69 @@
 <div align="center">
 
-# 🌟 Woody v3.0 — Local-First Windows AI Operating System Layer
+# 🌟 Woody v3.0 — The Futuristic Windows AI Operating System Layer
 
 <p align="center">
-  <img src="assets/banner.jpg" alt="Woody v3.0 AI OS Layer" width="100%" />
+  <img src="assets/banner.jpg" alt="Woody AI Operating System Banner" width="100%" />
 </p>
 
-> **"Perceive. Reason. Act. Learn. Stay invisible until needed."**
+### *Perceive. Reason. Act. Learn. Stay invisible until summoned.*
 
-Woody is a persistent, multi-agent AI operating layer built natively for Windows — featuring local-first intelligence, multimodal screen perception, real-time voice interaction, fluid glassmorphism command centers, and an authentic interactive animated AI desktop companion powered by the **VPet Simulation Engine**.
+**Woody** is an autonomous, local-first Windows AI Operating System layer designed to transform your desktop experience. Engineered with multimodal screen vision, sub-second neural voice streaming, multi-agent swarm intelligence, fluid liquid glass HUDs, and an authentic animated AI desktop companion powered by the **VPet Simulation Engine**.
 
----
+<br/>
 
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Platform: Windows 11/10](https://img.shields.io/badge/Platform-Windows_11%20%7C%2010-0078D4?style=for-the-badge&logo=windows&logoColor=white)](https://microsoft.com/windows)
-[![LangGraph Multi-Agent](https://img.shields.io/badge/Orchestration-LangGraph-FF6F00?style=for-the-badge&logo=langchain&logoColor=white)](https://langchain.com)
+[![LangGraph Multi-Agent](https://img.shields.io/badge/Swarm-LangGraph-FF6F00?style=for-the-badge&logo=langchain&logoColor=white)](https://langchain.com)
 [![VPet Simulation Engine](https://img.shields.io/badge/VPet_Engine-6%2C180%2B_Frames-9333EA?style=for-the-badge)](vpet/)
-[![Ollama Local LLMs](https://img.shields.io/badge/Local_LLM-Ollama-black?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com)
-[![Inworld AI Voice](https://img.shields.io/badge/Neural_TTS-Inworld_AI-7C3AED?style=for-the-badge)](https://inworld.ai)
+[![Ollama Local LLMs](https://img.shields.io/badge/Local_LLM-Ollama_Offline-black?style=for-the-badge&logo=ollama&logoColor=white)](https://ollama.com)
+[![Inworld AI Voice](https://img.shields.io/badge/Neural_Voice-Inworld_AI_TTS-7C3AED?style=for-the-badge)](https://inworld.ai)
 [![License: MIT](https://img.shields.io/badge/License-MIT-10B981?style=for-the-badge)](LICENSE)
 
 </div>
 
 ---
 
-## ⚡ What's New in Woody v3.0
+## ⚡ What We Built: Highlights at a Glance
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <h3>🐾 Authentic VPet Desktop Companion (`--pet`)</h3>
+      <h3>🐾 Authentic VPet Desktop Companion (<code>--pet</code>)</h3>
       <ul>
-        <li><b>6,180+ Animation Frames & 25+ Actions:</b> Powered by official VPet core sprites (Idle, Meow, Tennis, Music, Sleep, Work, Pinch, Squat, Say, Level-Up).</li>
-        <li><b>Full RPG Stats & Life Simulation:</b> Dynamic Level & EXP, Money ($), Fullness (Hunger), Thirst, Stamina, Mood, and Likability tracking.</li>
-        <li><b>120+ Authentic Items & Shop:</b> Complete LinePutScript (<code>.lps</code>) foods, drinks, medicine, and gifts with official English translations.</li>
+        <li><b>6,180+ Animation Frames:</b> Native graph state machine executing 25+ official interactive animations (Idle, Meow, Tennis, Music, Sleep, Work, Pinch, Squat, Say, Level-Up).</li>
+        <li><b>Full RPG Life Simulation:</b> Real-time Level, EXP, Money ($), Fullness, Thirst, Stamina, Mood, and Likability tracking.</li>
+        <li><b>120+ Authentic LPS Catalog Items:</b> Complete LinePutScript items (foods, drinks, medicine, gifts) with full English localization.</li>
         <li><b>Work & Study Jobs:</b> Earn money through AI Coding, Live Streaming, Calligraphy, and Analytics with floating Purple WorkTimers.</li>
-        <li><b>Zero-Latency Neural Voice:</b> Sentence-pipelined Inworld TTS-2 streaming (&lt;50ms queue) with native audio cues (purrs, chimes, coins).</li>
+        <li><b>Zero-Latency Neural Voice:</b> Sentence-pipelined Inworld TTS-2 streaming (&lt;50ms queue) with native audio feedback cues.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
-      <h3>🔮 Liquid Glass Command Center (`--web-ui`)</h3>
+      <h3>🔮 Liquid Obsidian Glass HUD (<code>--web-ui</code>)</h3>
       <ul>
-        <li><b>Apple Intelligence-Inspired UI:</b> Refractive glassmorphism with dynamic ambient lighting, specular depth, and fluid spring animations.</li>
-        <li><b>Live Audio Visualizer:</b> Real-time dynamic voice gradient glowing orb & responsive spectrum waveforms.</li>
-        <li><b>Streaming Swarm Transcripts:</b> Instant markdown chat stream, step-by-step reasoning nodes, and activity audit log.</li>
-        <li><b>Interactive Confirmation Cards:</b> Inline approvals for high-privilege system actions before execution.</li>
+        <li><b>Apple-Inspired Glassmorphism:</b> Translucent obsidian backdrop (<code>blur: 40px</code>, <code>saturate: 230%</code>) with revolving Indigo-Violet neon borders.</li>
+        <li><b>Dynamic Voice Visualizer Orb:</b> Real-time pulsating acoustic visualizer modulating to your voice input.</li>
+        <li><b>Live Multi-Agent Streaming:</b> Syntax-highlighted code blocks (Fira Code), step-by-step reasoning nodes, and active agent badges.</li>
+        <li><b>Human-in-the-Loop Safety Cards:</b> Interactive confirmation dialogs before executing privileged system operations.</li>
       </ul>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <h3>👁️ Multimodal Screen Vision Agent</h3>
+      <h3>👁️ Multimodal Screen Perception</h3>
       <ul>
         <li><b>Live Screen Analysis:</b> Seamlessly inspects active windows, multi-monitor setups, and UI controls via Groq Llama-3.2 Vision / Qwen2.5-VL.</li>
-        <li><b>Low-Overhead Event Hooks:</b> Event-driven Win32 hooks trigger screen perception without draining CPU/battery.</li>
-        <li><b>Visual UI Grounding:</b> Recognizes buttons, input fields, forms, and error dialogs for high-precision desktop automation.</li>
+        <li><b>Event-Driven Win32 Hooks:</b> Low-overhead background hooks capture screen state without draining CPU or battery.</li>
+        <li><b>Visual UI Grounding:</b> Pinpoints buttons, input fields, forms, and error dialogs for high-precision desktop automation.</li>
       </ul>
     </td>
     <td width="50%" valign="top">
-      <h3>🚀 Pipelined Speech & Multi-Agent Swarm</h3>
+      <h3>🚀 Autonomous Multi-Agent Swarm</h3>
       <ul>
-        <li><b>Sub-Second Voice Loop:</b> OpenWakeWord ("Hey Woody") + Silero VAD + Faster-Whisper streaming STT.</li>
-        <li><b>LangGraph Swarm Routing:</b> Autonomous intent decomposition between Desktop, Vision, System, Browser, and Chat agents.</li>
-        <li><b>Critic/Verifier Self-Correction:</b> Automated verification loops ensure desktop commands succeed accurately.</li>
-        <li><b>Model Context Protocol (MCP):</b> Connect external tools and enterprise data sources via MCP manifests.</li>
+        <li><b>LangGraph Swarm Routing:</b> Decomposes complex queries across Desktop, Vision, System, Browser, and Coding agents.</li>
+        <li><b>Win32 Desktop Automation:</b> Direct UI automation, clicking, typing, hotkey macros, and window tiling.</li>
+        <li><b>Critic Closed-Loop Verification:</b> Automated verification engine validates outcomes and self-corrects on failure.</li>
+        <li><b>Model Context Protocol (MCP):</b> Connects enterprise data sources and custom tools via MCP server manifests.</li>
       </ul>
     </td>
   </tr>
@@ -73,7 +73,7 @@ Woody is a persistent, multi-agent AI operating layer built natively for Windows
 
 ## 🐾 Meet Woody — Your AI Desktop Pet Companion
 
-Woody is not just a background daemon; it comes with an authentic, fully animated **AI Desktop Pet** that lives directly on your Windows screen. Ask questions, have it inspect your screen, automate desktop tasks, feed it snacks, or let it work jobs to earn money!
+Woody is not just a hidden background daemon; it features an authentic, fully animated **AI Desktop Pet** that lives directly on your Windows desktop. Talk to Woody via voice, have it inspect your active applications, automate tedious workflows, feed it snacks, or let it work jobs to earn money!
 
 <p align="center">
   <img src="assets/desktop_pet.jpg" alt="Woody AI Desktop Pet Showcase" width="95%" />
@@ -90,9 +90,9 @@ Woody is not just a background daemon; it comes with an authentic, fully animate
 
 </div>
 
-### ✨ VPet Simulation Highlights:
+### ✨ VPet Simulation Features:
 - **6,180+ Official Animation Frames:** Direct integration of the official LorisYounger/VPet core sprite graph across 25+ unique interactive animations.
-- **5-Tab Floating Toolbar (Purple Theme `prupe.lps`):**
+- **5-Tab Floating Royal Purple Toolbar (`prupe.lps`):**
   - 🍲 **Feed:** Feed foods, drinks, snacks, and medicine to restore fullness and health.
   - 📊 **Status:** View Level, EXP, Health, Stamina, Mood, Hunger, Thirst, and Likability.
   - 🎭 **Interact:** Play tennis, blow bubbles, touch head/body, pinch cheeks, or make it dance.
@@ -110,7 +110,7 @@ woody --pet
 
 ---
 
-## 🔮 Liquid Glass Command Center & Web Overlay
+## 🔮 Liquid Obsidian Glass Command Center (`--web-ui`)
 
 Woody features a state-of-the-art UI system crafted with **Apple-inspired fluid glassmorphism**, specular catch-lights, and responsive ambient backdrops.
 
@@ -122,6 +122,10 @@ Woody features a state-of-the-art UI system crafted with **Apple-inspired fluid 
 - **Live Markdown Stream:** Watch agent reasoning steps, code blocks, and formatted summaries appear incrementally.
 - **Multi-Agent Switcher:** Monitor real-time statuses for **Desktop Agent**, **Vision Agent**, **System Agent**, and **Memory**.
 - **Human-in-the-Loop Safety:** Destructive actions (e.g. deleting files, closing unsaved apps) generate inline confirmation cards requiring explicit authorization.
+- **Global Hotkeys:**
+  - `Ctrl + Alt + Space` / `Ctrl + Space` — Toggle Command Center HUD
+  - `Ctrl + /` — Instant focus into prompt textarea
+  - `Esc` — Collapse & hide to system tray
 
 ```bash
 # Launch Woody with the full Glassmorphism WebEngine Overlay
@@ -205,7 +209,7 @@ woody
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Quick Start Guide
 
 ### 1. Prerequisites
 - **Windows 10 / 11** (Required for Win32 API & UI Automation)
@@ -321,6 +325,9 @@ agents:
 ```
 Wodi/
 ├── assets/                  # Banners, interface mockups, showcase imagery
+│   ├── banner.jpg           # Hero banner
+│   ├── command_center.jpg   # Obsidian glass command center HUD
+│   └── desktop_pet.jpg      # VPet desktop companion showcase
 ├── config/                  # Default configurations (woody_config.yaml)
 ├── gifs/                    # Sprite fallback animation loops
 ├── scripts/                 # Automated setup & utility scripts (install.ps1)
@@ -330,7 +337,7 @@ Wodi/
 └── woody/                   # Core Python package
     ├── agents/              # LangGraph multi-agent swarm (Desktop, Vision, System, Browser, Chat)
     ├── critic/              # Verification & self-correction engine
-    ├── ipc/                 # Inter-process communication & event bus
+    ├── ipc/                 # Inter-process communication & FastAPI SSE event bus
     ├── kernel/              # Core lifecycle, configuration & hardware tier detection
     ├── memory/              # Vector RAG & episodic conversation memory
     ├── observability/       # Logging, tracing & evaluation harness
